@@ -1,0 +1,64 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Test
+        run: dotnet test NvColorProfiles.slnx -c Release
+
+      # Self-contained single-file win-x64 build — no .NET runtime needed on the target.
+      # Do NOT add PublishTrimmed/PublishAot: the bundled NvAPIWrapper.Net is LGPL-3.0 and the
+      # relink right is satisfied by this public, rebuildable source — that needs the managed IL to
+      # stay intact (trimming/AOT would strip or compile it away). See NOTICE / COPYING.LESSER.
+      - name: Publish portable
+        run: |
+          dotnet publish src/NvColorProfiles/NvColorProfiles.csproj -c Release -r win-x64 --self-contained \
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:EnableCompressionInSingleFile=true -p:DebugType=none -o publish
+
+      # NSIS installer built natively on Linux (no Wine) from the portable exe.
+      - name: Build installer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nsis
+          tag="${GITHUB_REF#refs/tags/}"
+          ver="${tag#v}"
+          cp publish/NvColorProfiles.exe installer/NvColorProfiles.exe
+          cp src/NvColorProfiles/assets/nvcolorprofiles.ico installer/nvcolorprofiles.ico
+          cp NOTICE COPYING COPYING.LESSER installer/
+          ( cd installer && mkdir -p Output && makensis -V4 -INPUTCHARSET UTF8 -DAppVersion="$ver" -DAppVersionClean="$ver" nvcolorprofiles-setup.nsi )
+
+      - name: Stage release assets
+        run: |
+          cp publish/NvColorProfiles.exe NvColorProfiles.exe
+          cp installer/Output/*.exe nvcolorprofiles-setup.exe
+
+      - name: Create GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          ver="${tag#v}"
+          gh release create "$tag" \
+            --title "$tag" \
+            --notes-file <(awk -v ver="$ver" '
+              /^## / { if (found) exit; if ($0 ~ "^## "ver) found=1; next }
+              found
+            ' CHANGELOG.md) \
+            nvcolorprofiles-setup.exe NvColorProfiles.exe NOTICE COPYING COPYING.LESSER

@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NvColorProfiles.Core/NvColorProfiles.Core.csproj" />
+    <Project Path="src/NvColorProfiles/NvColorProfiles.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NvColorProfiles.Core.Tests/NvColorProfiles.Core.Tests.csproj" />
+  </Folder>
+</Solution>

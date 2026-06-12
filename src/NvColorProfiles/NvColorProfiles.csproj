@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>nv_color_profiles</RootNamespace>
+    <AssemblyName>NvColorProfiles</AssemblyName>
+    <ApplicationIcon>assets\nvcolorprofiles.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- This is a Windows-only app (NvAPI/gdi32/registry); net10.0 TFM is only for the Linux
+         cross-build. Suppress the cross-platform analyzer for the deliberately Windows-only calls. -->
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.0.3" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.0.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.3" />
+    <!-- first-party; DisplaySettingsChanged + PowerModeChanged to re-assert gamma after the OS resets it -->
+    <PackageReference Include="Microsoft.Win32.SystemEvents" Version="10.0.8" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NvColorProfiles.Core\NvColorProfiles.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="assets\nvcolorprofiles.ico">
+      <LogicalName>nvcolorprofiles.ico</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <!-- License texts embedded so the LGPL notice travels inside the single-file exe (in-app Licenses view). -->
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\NOTICE">
+      <LogicalName>notice.txt</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\LICENSE">
+      <LogicalName>mit-license.txt</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\COPYING.LESSER">
+      <LogicalName>lgpl-3.0.txt</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\..\COPYING">
+      <LogicalName>gpl-3.0.txt</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>

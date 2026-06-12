@@ -1,0 +1,51 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+
+[*.{cs,csx}]
+indent_size = 4
+max_line_length = 120
+
+# Language / style preferences
+csharp_style_namespace_declarations = file_scoped:suggestion
+csharp_using_directive_placement = outside_namespace:suggestion
+csharp_prefer_braces = true:suggestion
+dotnet_sort_system_directives_first = true
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+dotnet_style_qualification_for_field = false:suggestion
+dotnet_style_qualification_for_property = false:suggestion
+
+# ---- House naming convention: snake_case everywhere, UPPER_SNAKE_CASE for constants ----
+# Encoded as suggestions; IDE1006 is also suppressed in Directory.Build.props so the
+# SDK's default PascalCase rules never fight snake_case at build time.
+
+dotnet_naming_style.snake_case.capitalization = all_lower
+dotnet_naming_style.snake_case.word_separator = _
+
+dotnet_naming_style.upper_snake_case.capitalization = all_upper
+dotnet_naming_style.upper_snake_case.word_separator = _
+
+# constants -> UPPER_SNAKE_CASE
+dotnet_naming_symbols.constants.applicable_kinds = field
+dotnet_naming_symbols.constants.required_modifiers = const
+dotnet_naming_rule.constants_upper.symbols = constants
+dotnet_naming_rule.constants_upper.style = upper_snake_case
+dotnet_naming_rule.constants_upper.severity = suggestion
+
+# everything else -> snake_case
+dotnet_naming_symbols.all_symbols.applicable_kinds = namespace, class, struct, interface, enum, property, method, field, event, delegate, parameter, type_parameter, local, local_function
+dotnet_naming_rule.all_snake.symbols = all_symbols
+dotnet_naming_rule.all_snake.style = snake_case
+dotnet_naming_rule.all_snake.severity = suggestion
+
+[*.{json,yml,yaml,csproj,props,targets,slnx}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false

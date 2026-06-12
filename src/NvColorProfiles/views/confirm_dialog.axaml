@@ -1,0 +1,14 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="nv_color_profiles.views.confirm_dialog"
+        Width="400" SizeToContent="Height"
+        CanResize="False" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+  <StackPanel Margin="20" Spacing="18">
+    <TextBlock x:Name="message" TextWrapping="Wrap" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button x:Name="confirm_button" MinWidth="100" Classes="accent" IsDefault="True" />
+      <Button x:Name="cancel_button" MinWidth="100" IsCancel="True" />
+    </StackPanel>
+  </StackPanel>
+</Window>

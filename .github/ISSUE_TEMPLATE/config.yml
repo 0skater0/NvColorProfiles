@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Bug reporting guidelines
+    url: https://github.com/0skater0/NvColorProfiles#reporting-bugs
+    about: Please read the bug reporting guidelines before opening an issue.

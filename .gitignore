@@ -1,0 +1,43 @@
+# .NET / Visual Studio
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+artifacts/
+publish/
+*.dll
+*.pdb
+
+# Rider / ReSharper
+.idea/
+_ReSharper*/
+*.DotSettings.user
+
+# Build output / packaging
+*.zip
+*.msi
+*.exe
+
+# OS
+Thumbs.db
+Desktop.ini
+NUL
+tmpclaude-*
+
+# Local config dumps / scratch
+*.local.json
+/scratch/
+temp/
+_verify/
+installer/Output/
+installer/NvColorProfiles.exe
+installer/nvcolorprofiles.ico

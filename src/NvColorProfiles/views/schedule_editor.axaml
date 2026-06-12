@@ -1,0 +1,25 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:i18n="clr-namespace:nv_color_profiles.localization"
+        x:Class="nv_color_profiles.views.schedule_editor"
+        Width="380" SizeToContent="Height"
+        CanResize="False" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+  <Grid Margin="16" ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
+    <TextBlock Grid.Row="0" Grid.Column="0" Text="{i18n:tr from}" VerticalAlignment="Center" Margin="0,0,12,8" />
+    <TimePicker x:Name="from_time" Grid.Row="0" Grid.Column="1" ClockIdentifier="24HourClock"
+                HorizontalAlignment="Left" Margin="0,0,0,8" />
+
+    <TextBlock Grid.Row="1" Grid.Column="0" Text="{i18n:tr to}" VerticalAlignment="Center" Margin="0,0,12,8" />
+    <TimePicker x:Name="to_time" Grid.Row="1" Grid.Column="1" ClockIdentifier="24HourClock"
+                HorizontalAlignment="Left" Margin="0,0,0,8" />
+
+    <TextBlock Grid.Row="2" Grid.Column="0" Text="{i18n:tr profile}" VerticalAlignment="Center" Margin="0,0,12,8" />
+    <ComboBox x:Name="profile_combo" Grid.Row="2" Grid.Column="1" HorizontalAlignment="Stretch" Margin="0,0,0,8" />
+
+    <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,12,0,0">
+      <Button x:Name="ok_button" Content="{i18n:tr ok}" MinWidth="84" Classes="accent" IsDefault="True" />
+      <Button x:Name="cancel_button" Content="{i18n:tr cancel}" MinWidth="92" IsCancel="True" />
+    </StackPanel>
+  </Grid>
+</Window>

@@ -1,0 +1,176 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:i18n="clr-namespace:nv_color_profiles.localization"
+        x:Class="nv_color_profiles.views.settings_window"
+        Title="{i18n:tr settings.title}"
+        Width="900" Height="780"
+        MinWidth="720" MinHeight="560"
+        WindowStartupLocation="CenterScreen">
+
+  <Window.Styles>
+    <!-- keep the scrollbar slim instead of the fat Fluent default -->
+    <Style Selector="ScrollBar:vertical">
+      <Setter Property="MinWidth" Value="8" />
+      <Setter Property="Width" Value="8" />
+    </Style>
+    <Style Selector="ScrollBar:vertical Thumb">
+      <Setter Property="MinWidth" Value="6" />
+    </Style>
+  </Window.Styles>
+
+  <DockPanel Margin="16">
+
+    <!-- bottom action bar -->
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,16,0,0">
+      <Button x:Name="save_button" Content="{i18n:tr save}" MinWidth="110" Classes="accent" />
+      <Button x:Name="close_button" Content="{i18n:tr close}" MinWidth="110" />
+    </StackPanel>
+
+    <TabControl x:Name="tab_control">
+
+      <!-- ===== Profile ===== -->
+      <TabItem Header="{i18n:tr tab.profiles}">
+        <Grid ColumnDefinitions="220,*" Margin="0,12,0,0">
+
+          <DockPanel Grid.Column="0" Margin="0,0,16,0">
+            <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,10,0,0">
+              <Button x:Name="new_button" Content="{i18n:tr new}" HorizontalAlignment="Stretch" />
+              <Button x:Name="duplicate_button" Content="{i18n:tr duplicate}" HorizontalAlignment="Stretch" />
+              <Button x:Name="rename_button" Content="{i18n:tr rename}" HorizontalAlignment="Stretch" />
+              <Button x:Name="delete_button" Content="{i18n:tr delete}" HorizontalAlignment="Stretch" />
+            </StackPanel>
+            <ListBox x:Name="profile_list" />
+          </DockPanel>
+
+          <ScrollViewer Grid.Column="1" AllowAutoHide="True" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="10" Margin="0,0,12,0">
+              <ComboBox x:Name="monitor_combo" HorizontalAlignment="Stretch" />
+              <TextBlock x:Name="monitor_hint" Opacity="0.7" FontSize="12" TextWrapping="Wrap" Margin="0,-4,0,0" />
+
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{i18n:tr brightness}" FontWeight="SemiBold" />
+                <TextBlock x:Name="brightness_value" Grid.Column="1" />
+              </Grid>
+              <Slider x:Name="brightness_slider" Minimum="0" Maximum="100" />
+
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{i18n:tr contrast}" FontWeight="SemiBold" />
+                <TextBlock x:Name="contrast_value" Grid.Column="1" />
+              </Grid>
+              <Slider x:Name="contrast_slider" Minimum="0" Maximum="100" />
+
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{i18n:tr gamma}" FontWeight="SemiBold" />
+                <TextBlock x:Name="gamma_value" Grid.Column="1" />
+              </Grid>
+              <Slider x:Name="gamma_slider" Minimum="40" Maximum="280" />
+
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{i18n:tr vibrance}" FontWeight="SemiBold" />
+                <TextBlock x:Name="vibrance_value" Grid.Column="1" />
+              </Grid>
+              <Slider x:Name="vibrance_slider" Minimum="0" Maximum="100" />
+
+              <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{i18n:tr hue}" FontWeight="SemiBold" />
+                <TextBlock x:Name="hue_value" Grid.Column="1" />
+              </Grid>
+              <Slider x:Name="hue_slider" Minimum="0" Maximum="359" />
+
+              <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,4,0,0">
+                <Button x:Name="from_current_button" Content="{i18n:tr from_current}" />
+                <Button x:Name="reset_monitor_button" Content="{i18n:tr reset_monitor}" />
+              </StackPanel>
+              <TextBlock x:Name="hint_label" Opacity="0.7" TextWrapping="Wrap" />
+            </StackPanel>
+          </ScrollViewer>
+        </Grid>
+      </TabItem>
+
+      <!-- ===== Regeln ===== -->
+      <TabItem Header="{i18n:tr tab.rules}">
+        <Grid ColumnDefinitions="*,Auto" RowDefinitions="*,Auto,Auto,Auto" Margin="0,12,0,0">
+          <ListBox x:Name="rules_list" Grid.Row="0" Grid.Column="0" />
+          <StackPanel Grid.Row="0" Grid.Column="1" Spacing="6" Margin="12,0,0,0">
+            <Button x:Name="rule_new" Content="{i18n:tr new}" MinWidth="120" />
+            <Button x:Name="rule_edit" Content="{i18n:tr edit}" MinWidth="120" />
+            <Button x:Name="rule_delete" Content="{i18n:tr delete}" MinWidth="120" />
+            <Button x:Name="rule_up" Content="{i18n:tr move_up}" MinWidth="120" />
+            <Button x:Name="rule_down" Content="{i18n:tr move_down}" MinWidth="120" />
+          </StackPanel>
+          <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="10" Margin="0,12,0,0">
+            <TextBlock Text="{i18n:tr fallback_label}" VerticalAlignment="Center" />
+            <ComboBox x:Name="fallback_combo" MinWidth="240" />
+          </StackPanel>
+          <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="10" Margin="0,12,0,0">
+            <TextBlock Text="{i18n:tr delay_label}" VerticalAlignment="Center" />
+            <Slider x:Name="delay_slider" Minimum="0" Maximum="60000" Width="240" VerticalAlignment="Center"
+                    ToolTip.Tip="{i18n:tr direct_entry_tip}" />
+            <TextBlock x:Name="delay_value" VerticalAlignment="Center" MinWidth="56" Cursor="Hand"
+                       ToolTip.Tip="{i18n:tr direct_entry_tip}" />
+          </StackPanel>
+          <TextBlock Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Opacity="0.7" TextWrapping="Wrap" Margin="0,8,0,0"
+                     Text="{i18n:tr rules_hint}" />
+        </Grid>
+      </TabItem>
+
+      <!-- ===== Zeitplan ===== -->
+      <TabItem Header="{i18n:tr tab.schedule}">
+        <Grid ColumnDefinitions="*,Auto" RowDefinitions="*,Auto" Margin="0,12,0,0">
+          <ListBox x:Name="schedule_list" Grid.Row="0" Grid.Column="0" />
+          <StackPanel Grid.Row="0" Grid.Column="1" Spacing="6" Margin="12,0,0,0">
+            <Button x:Name="schedule_new" Content="{i18n:tr new}" MinWidth="120" />
+            <Button x:Name="schedule_edit" Content="{i18n:tr edit}" MinWidth="120" />
+            <Button x:Name="schedule_delete" Content="{i18n:tr delete}" MinWidth="120" />
+          </StackPanel>
+          <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Opacity="0.7" TextWrapping="Wrap" Margin="0,8,0,0"
+                     Text="{i18n:tr schedule_hint}" />
+        </Grid>
+      </TabItem>
+
+      <!-- ===== Allgemein ===== -->
+      <TabItem Header="{i18n:tr tab.general}">
+        <StackPanel Spacing="14" Margin="0,16,0,0">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <TextBlock Text="{i18n:tr language_label}" VerticalAlignment="Center" MinWidth="120" />
+            <ComboBox x:Name="language_combo" MinWidth="200" />
+          </StackPanel>
+
+          <CheckBox x:Name="autostart_check" Content="{i18n:tr autostart}" />
+          <CheckBox x:Name="restore_check" Content="{i18n:tr restore_on_exit}" />
+          <CheckBox x:Name="diagnostic_check" Content="{i18n:tr diagnostic}" />
+          <CheckBox x:Name="hotkeys_check" Content="{i18n:tr hotkeys_enabled}" />
+          <Grid Margin="24,-2,0,0" ColumnDefinitions="150,140,Auto,Auto" RowDefinitions="Auto,Auto,Auto"
+                RowSpacing="6" ColumnSpacing="8">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="{i18n:tr hk_next}" VerticalAlignment="Center" />
+            <TextBlock x:Name="hk_next_label" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" FontWeight="SemiBold" />
+            <Button x:Name="hk_next_change" Grid.Row="0" Grid.Column="2" Content="{i18n:tr change}" />
+            <Button x:Name="hk_next_reset" Grid.Row="0" Grid.Column="3" Content="{i18n:tr reset_default}" />
+
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="{i18n:tr hk_prev}" VerticalAlignment="Center" />
+            <TextBlock x:Name="hk_prev_label" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" FontWeight="SemiBold" />
+            <Button x:Name="hk_prev_change" Grid.Row="1" Grid.Column="2" Content="{i18n:tr change}" />
+            <Button x:Name="hk_prev_reset" Grid.Row="1" Grid.Column="3" Content="{i18n:tr reset_default}" />
+
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="{i18n:tr hk_toggle}" VerticalAlignment="Center" />
+            <TextBlock x:Name="hk_toggle_label" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" FontWeight="SemiBold" />
+            <Button x:Name="hk_toggle_change" Grid.Row="2" Grid.Column="2" Content="{i18n:tr change}" />
+            <Button x:Name="hk_toggle_reset" Grid.Row="2" Grid.Column="3" Content="{i18n:tr reset_default}" />
+          </Grid>
+
+          <TextBlock Text="{i18n:tr backup}" FontWeight="SemiBold" Margin="0,8,0,0" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button x:Name="export_button" Content="{i18n:tr export}" />
+            <Button x:Name="import_button" Content="{i18n:tr import}" />
+          </StackPanel>
+          <TextBlock x:Name="io_status" Opacity="0.7" TextWrapping="Wrap" Text="{i18n:tr backup_hint}" />
+
+          <TextBlock x:Name="location_label" Opacity="0.7" TextWrapping="Wrap" Margin="0,12,0,0" />
+
+          <Button x:Name="licenses_button" Content="{i18n:tr licenses}" HorizontalAlignment="Left" Margin="0,4,0,0" />
+        </StackPanel>
+      </TabItem>
+
+    </TabControl>
+  </DockPanel>
+</Window>

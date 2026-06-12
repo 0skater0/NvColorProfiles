@@ -1,0 +1,32 @@
+<Project>
+
+  <!-- Shared properties for all projects. TargetFramework is set per-project (.csproj). -->
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+    <!-- Commit lock files for a pinned, auditable dependency set. -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <!-- snake_case is the house naming convention; do not let the SDK fight it.
+         IDE1006: PascalCase naming suggestion. CS8981: single-word all-lowercase type
+         names (e.g. "program", "vibrance") could clash with future language keywords. -->
+    <NoWarn>$(NoWarn);IDE1006;CS8981</NoWarn>
+  </PropertyGroup>
+
+  <!-- Package / assembly metadata (shows in the exe's Details tab and on NuGet-style tooling). -->
+  <PropertyGroup>
+    <Authors>0skater0</Authors>
+    <Company>0skater0</Company>
+    <Product>NvColorProfiles</Product>
+    <Copyright>Copyright (c) 2026 0skater0</Copyright>
+    <!-- No PackageLicenseExpression: these assemblies are not published to NuGet, and a blanket
+         "MIT" here would wrongly tag NvColorProfiles.Core (which bundles the LGPL-3.0
+         NvAPIWrapper.Net). License terms are spelled out in LICENSE + NOTICE + COPYING(.LESSER). -->
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/0skater0/NvColorProfiles</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/0skater0/NvColorProfiles</PackageProjectUrl>
+  </PropertyGroup>
+
+</Project>

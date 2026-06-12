@@ -1,0 +1,104 @@
+name: Bug report
+description: Create a report to help improve NvColorProfiles
+labels: ["bug"]
+title: "[Bug]: "
+body:
+  - type: checkboxes
+    id: pre-check
+    attributes:
+      label: Pre-check
+      description: "You must confirm **all** of the following before you can submit this report."
+      options:
+        - label: I have read the [Bug Reporting Guidelines](https://github.com/0skater0/NvColorProfiles#reporting-bugs).
+          required: true
+        - label: I have searched the [existing issues](https://github.com/0skater0/NvColorProfiles/issues) and this bug has not been reported yet.
+          required: true
+        - label: I am on an NVIDIA GPU with current drivers.
+          required: true
+  - type: textarea
+    id: describe-the-bug
+    attributes:
+      label: Describe the bug
+      description: "A clear and concise description of what the bug is."
+      placeholder: "Describe the issue"
+    validations:
+      required: true
+  - type: textarea
+    id: how-to-reproduce
+    attributes:
+      label: How to reproduce
+      description: "Steps to reproduce the behavior."
+      placeholder: |
+        1. Open Settings
+        2. Create a profile and set vibrance to 70%
+        3. Add a rule for game.exe
+        4. Enable Automatic (rules)
+        5. See ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: "A clear and concise description of what you expected to happen."
+      placeholder: "The behavior that I expect to see is [...]"
+    validations:
+      required: true
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often does this occur?
+      options:
+        - Always (every time)
+        - Sometimes (intermittent)
+        - Only once
+      default: 0
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      description: "The installer/portable file name, or the version in the executable's Details tab."
+      placeholder: "e.g. 1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: driver-gpu
+    attributes:
+      label: NVIDIA driver version and GPU
+      description: "Found in the NVIDIA Control Panel under System Information."
+      placeholder: "e.g. 566.36, RTX 4070"
+    validations:
+      required: true
+  - type: input
+    id: windows-version
+    attributes:
+      label: Windows version
+      description: "Found under Settings > System > About (Edition and Version)."
+      placeholder: "e.g. Windows 11 23H2"
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log file
+      description: "If you can reproduce with diagnostic logging enabled (Settings > General > Diagnostic logging), paste the relevant lines from `%APPDATA%\\NvColorProfiles\\logs\\`."
+      render: shell
+    validations:
+      required: false
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / Videos
+      description: "If applicable, add screenshots or a short screen recording to help explain the problem."
+    validations:
+      required: false
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: "Anything else worth knowing (multi-monitor setup, other color tools running, etc.)."
+      placeholder: "Also note that [...]"
+    validations:
+      required: false

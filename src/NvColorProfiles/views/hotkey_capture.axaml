@@ -1,0 +1,23 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:i18n="clr-namespace:nv_color_profiles.localization"
+        x:Class="nv_color_profiles.views.hotkey_capture"
+        Title="{i18n:tr hotkey.title}"
+        Width="400" SizeToContent="Height"
+        CanResize="False" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+  <StackPanel Margin="20" Spacing="14">
+    <TextBlock Text="{i18n:tr hotkey.prompt}"
+               TextWrapping="Wrap" />
+    <Border BorderThickness="1" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+            CornerRadius="6" Padding="12" MinHeight="48">
+      <TextBlock x:Name="preview" FontSize="20" FontWeight="SemiBold"
+                 HorizontalAlignment="Center" VerticalAlignment="Center" Text="—" />
+    </Border>
+    <TextBlock x:Name="hint" Opacity="0.7" TextWrapping="Wrap" MinHeight="18" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button x:Name="ok_button" Content="{i18n:tr ok}" MinWidth="84" Classes="accent" IsDefault="True" IsEnabled="False" />
+      <Button x:Name="cancel_button" Content="{i18n:tr cancel}" MinWidth="92" IsCancel="True" />
+    </StackPanel>
+  </StackPanel>
+</Window>
