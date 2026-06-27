@@ -219,6 +219,7 @@ public partial class nv_app : Application
             {
                 try
                 {
+                    host.invalidate_displays(); // topology may have changed; drop stale NvAPI handles
                     host.reapply_current();
                     update_tooltip();
                 }

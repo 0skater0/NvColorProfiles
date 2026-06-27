@@ -142,6 +142,12 @@ internal sealed class app_host : IDisposable
     }
 
     /// <summary>
+    /// Drops the cached display handles so the next apply re-resolves them. Called when the OS
+    /// signals a display change (resolution, monitor hotplug, standby resume).
+    /// </summary>
+    public void invalidate_displays() => catalog.invalidate();
+
+    /// <summary>
     /// Persists an edited config (profiles + settings). Does NOT re-apply — the settings window
     /// keeps showing its live preview; the active profile is re-applied when the window closes.
     /// </summary>

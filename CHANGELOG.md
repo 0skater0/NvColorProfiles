@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/).
 
+## 1.0.1 — 2026-06-13
+
+### Fixed
+
+- Removed UI lag when switching profiles, toggling automatic mode and opening the tray menu. NVIDIA display handles are now cached instead of re-enumerating the driver on every color change.
+
 ## 1.0.0 — 2026-06-12
 
 First public release.

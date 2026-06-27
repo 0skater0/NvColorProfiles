@@ -7,11 +7,16 @@ namespace nv_color_profiles.core.display;
 /// <summary>
 /// <see cref="display_catalog"/> backed by NvAPI. Maps each NvAPI display to its stable
 /// <c>DisplayId</c>, its GDI device name (for gamma application) and a best-effort monitor name.
+///
+/// The enumeration result is cached: Display.GetDisplays() and the Windows monitor-name query are not
+/// free and were previously re-run on every profile apply. The cache is dropped on any display-
+/// topology change via <see cref="invalidate"/>.
 /// </summary>
 public sealed class nv_display_catalog : display_catalog
 {
     private readonly nv_session session;
     private readonly ILogger<nv_display_catalog> log;
+    private IReadOnlyList<nv_display>? cached;
 
     public nv_display_catalog(nv_session session, ILogger<nv_display_catalog> log)
     {
@@ -21,6 +26,10 @@ public sealed class nv_display_catalog : display_catalog
 
     public IReadOnlyList<nv_display> get_displays()
     {
+        if (cached is not null)
+        {
+            return cached;
+        }
         if (!session.is_available)
         {
             return Array.Empty<nv_display>();
@@ -42,7 +51,21 @@ public sealed class nv_display_catalog : display_catalog
         catch (Exception ex)
         {
             log.LogWarning(ex, "Failed to enumerate displays");
+            return displays; // do not cache a failed enumeration; retry on the next call
         }
-        return displays;
+
+        cached = displays;
+        return cached;
+    }
+
+    /// <summary>
+    /// Drops the cached display list and the shared NvAPI handle cache. Call on any display-topology
+    /// change (resolution change, monitor connect/disconnect, standby resume) so the next enumeration
+    /// and the next vibrance/hue write resolve fresh handles.
+    /// </summary>
+    public void invalidate()
+    {
+        cached = null;
+        nv_display_lookup.invalidate();
     }
 }
