@@ -161,30 +161,64 @@ public partial class nv_app : Application
     private hotkey_service.binding[] current_bindings()
     {
         var s = host.config.settings;
-        return new[]
+        var result = new List<hotkey_service.binding>
         {
-            new hotkey_service.binding(hotkey_service.hotkey.profile_next, s.hotkey_next.mods, s.hotkey_next.key, s.hotkey_next.mouse_button),
-            new hotkey_service.binding(hotkey_service.hotkey.profile_prev, s.hotkey_prev.mods, s.hotkey_prev.key, s.hotkey_prev.mouse_button),
-            new hotkey_service.binding(hotkey_service.hotkey.toggle_auto, s.hotkey_toggle.mods, s.hotkey_toggle.key, s.hotkey_toggle.mouse_button),
+            new(1, hotkey_service.hotkey_kind.profile_next, null, s.hotkey_next.mods, s.hotkey_next.key, s.hotkey_next.mouse_button),
+            new(2, hotkey_service.hotkey_kind.profile_prev, null, s.hotkey_prev.mods, s.hotkey_prev.key, s.hotkey_prev.mouse_button),
+            new(3, hotkey_service.hotkey_kind.toggle_auto, null, s.hotkey_toggle.mods, s.hotkey_toggle.key, s.hotkey_toggle.mouse_button),
         };
+        // per-profile direct hotkeys start at 100 to leave a gap for future global actions
+        var next_id = 100;
+        foreach (var profile in host.config.profiles)
+        {
+            var hk = profile.hotkey;
+            if (hk is { is_set: true })
+            {
+                result.Add(new hotkey_service.binding(next_id++, hotkey_service.hotkey_kind.apply_profile, profile.name, hk.mods, hk.key, hk.mouse_button));
+            }
+        }
+        return result.ToArray();
     }
 
     // hotkeys fire on their own thread; marshal to the UI thread before touching app state
-    private void on_hotkey(hotkey_service.hotkey id) => Dispatcher.UIThread.Post(() =>
+    private void on_hotkey(hotkey_service.hotkey_kind kind, string? payload) => Dispatcher.UIThread.Post(() =>
     {
-        switch (id)
+        switch (kind)
         {
-            case hotkey_service.hotkey.profile_next:
+            case hotkey_service.hotkey_kind.profile_next:
                 cycle_profile(1);
                 break;
-            case hotkey_service.hotkey.profile_prev:
+            case hotkey_service.hotkey_kind.profile_prev:
                 cycle_profile(-1);
                 break;
-            case hotkey_service.hotkey.toggle_auto:
+            case hotkey_service.hotkey_kind.toggle_auto:
                 toggle_auto(!is_auto);
+                break;
+            case hotkey_service.hotkey_kind.apply_profile:
+                apply_profile_hotkey(payload);
                 break;
         }
     });
+
+    private void apply_profile_hotkey(string? name)
+    {
+        if (!host.nvapi_available || string.IsNullOrEmpty(name))
+        {
+            return;
+        }
+        var target = host.config.find_profile(name);
+        if (target is null)
+        {
+            return; // profile was deleted between binding and press; silent no-op
+        }
+        if (is_auto)
+        {
+            toggle_auto(false); // a direct pick is a manual selection
+        }
+        host.apply(target);
+        update_tooltip();
+        rebuild_menu();
+    }
 
     private void cycle_profile(int direction)
     {

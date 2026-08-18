@@ -12,8 +12,10 @@ namespace nv_color_profiles.interop;
 /// </summary>
 internal sealed class mouse_hook : IDisposable
 {
-    /// <summary>Registered mouse-button trigger for one hotkey action.</summary>
-    public sealed record mouse_binding(hotkey_service.hotkey id, uint mods, uint mouse_button);
+    /// <summary>Registered mouse-button trigger for one hotkey action. <see cref="id"/> is the
+    /// same wparam that <see cref="hotkey_service"/> uses for keyboard bindings, so both paths
+    /// dispatch through one lookup.</summary>
+    public sealed record mouse_binding(int id, uint mods, uint mouse_button);
 
     private const int WH_MOUSE_LL = 14;
     private const int HC_ACTION = 0;
@@ -31,7 +33,7 @@ internal sealed class mouse_hook : IDisposable
     private readonly hook_proc callback;
     private IntPtr hook_handle = IntPtr.Zero;
     private IReadOnlyList<mouse_binding> bindings = Array.Empty<mouse_binding>();
-    private Action<hotkey_service.hotkey>? on_match;
+    private Action<int>? on_match;
 
     public mouse_hook(ILogger<mouse_hook> log)
     {
@@ -40,7 +42,7 @@ internal sealed class mouse_hook : IDisposable
     }
 
     /// <summary>Installs the hook on the calling thread (which must own a message queue).</summary>
-    public void install(IReadOnlyList<mouse_binding> bindings, Action<hotkey_service.hotkey> on_match)
+    public void install(IReadOnlyList<mouse_binding> bindings, Action<int> on_match)
     {
         this.bindings = bindings;
         this.on_match = on_match;
@@ -90,10 +92,10 @@ internal sealed class mouse_hook : IDisposable
         return CallNextHookEx(hook_handle, code, wParam, lParam);
     }
 
-    private hotkey_service.hotkey? find_match(uint mouse_button)
+    private int? find_match(uint mouse_button)
     {
         var mods = current_modifiers();
-        // linear scan — three bindings max, no allocation, tight upper bound on latency
+        // linear scan — small binding list, no allocation, tight upper bound on latency
         for (var i = 0; i < bindings.Count; i++)
         {
             var b = bindings[i];

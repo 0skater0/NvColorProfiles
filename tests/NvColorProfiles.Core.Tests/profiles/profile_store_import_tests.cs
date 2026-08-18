@@ -119,6 +119,59 @@ public class profile_store_import_tests
     }
 
     [Fact]
+    public void per_profile_hotkey_survives_roundtrip()
+    {
+        var config = app_config.create_default() with
+        {
+            profiles = new List<profile>
+            {
+                profile.uniform(app_config.DEFAULT_PROFILE_NAME, color_settings.neutral, builtin: true),
+                profile.uniform("Day", color_settings.neutral) with
+                {
+                    hotkey = new hotkey_binding { mods = hotkey_binding.MOD_CONTROL | hotkey_binding.MOD_ALT, key = 0x44 },
+                },
+                profile.uniform("Night", color_settings.neutral) with
+                {
+                    hotkey = new hotkey_binding { mods = hotkey_binding.MOD_CONTROL, mouse_button = hotkey_binding.XBUTTON1 },
+                },
+            },
+        };
+
+        var round = profile_store.from_json(profile_store.to_json(config));
+
+        Assert.NotNull(round);
+        var day = round!.find_profile("Day");
+        Assert.NotNull(day);
+        Assert.NotNull(day!.hotkey);
+        Assert.Equal(0x44u, day.hotkey!.key);
+        Assert.Equal(hotkey_binding.MOD_CONTROL | hotkey_binding.MOD_ALT, day.hotkey.mods);
+
+        var night = round.find_profile("Night");
+        Assert.NotNull(night);
+        Assert.Equal(hotkey_binding.XBUTTON1, night!.hotkey!.mouse_button);
+        Assert.Equal(hotkey_binding.MOD_CONTROL, night.hotkey.mods);
+
+        // the read-only default gets no hotkey and stays null (not a stub "unset" record)
+        Assert.Null(round.find_profile(app_config.DEFAULT_PROFILE_NAME)!.hotkey);
+    }
+
+    [Fact]
+    public void legacy_json_without_profile_hotkey_stays_null()
+    {
+        var json = """
+        {
+          "schema_version": 1,
+          "profiles": [ { "name": "Gaming", "displays": {} } ]
+        }
+        """;
+
+        var config = profile_store.from_json(json);
+
+        Assert.NotNull(config);
+        Assert.Null(config!.find_profile("Gaming")!.hotkey);
+    }
+
+    [Fact]
     public void to_json_then_from_json_roundtrips_profiles_rules_schedules()
     {
         var config = app_config.create_default() with

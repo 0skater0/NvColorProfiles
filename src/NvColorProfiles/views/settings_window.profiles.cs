@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using nv_color_profiles.core.display;
 using nv_color_profiles.core.profiles;
+using nv_color_profiles.interop;
 using nv_color_profiles.localization;
 
 namespace nv_color_profiles.views;
@@ -39,7 +40,117 @@ public partial class settings_window
             : host.nvapi_available ? i18n.t("hint.editable") : i18n.t("hint.no_gpu");
 
         refresh_monitor_hint();
+        refresh_profile_hotkey_row();
         loading = false;
+    }
+
+    // paints the "Direct hotkey" row for the selected profile: current binding label, action-button
+    // enablement (builtin profiles show the value but can't edit) and the conflict warning line
+    private void refresh_profile_hotkey_row()
+    {
+        var p = selected_profile();
+        var hk = p?.hotkey;
+        var editable = p is { builtin: false };
+
+        profile_hotkey_label.Text = hk is { is_set: true }
+            ? hk.display_name(i18n.is_english)
+            : i18n.t("profile.hotkey.none");
+        profile_hotkey_change.IsEnabled = editable;
+        profile_hotkey_clear.IsEnabled = editable && hk is { is_set: true };
+
+        var conflict = hk is { is_set: true } && p is not null
+            ? find_hotkey_conflict(hk, p.name)
+            : null;
+        if (conflict is null)
+        {
+            profile_hotkey_conflict.IsVisible = false;
+            profile_hotkey_conflict.Text = string.Empty;
+        }
+        else
+        {
+            profile_hotkey_conflict.Text = string.Format(i18n.t("profile.hotkey.conflict"), conflict);
+            profile_hotkey_conflict.IsVisible = true;
+        }
+    }
+
+    // forwards to the row-refresh in settings_window.axaml.cs so the profile-list suffixes stay
+    // in sync after a per-profile or global hotkey change
+    private void refresh_profile_row_labels() => refresh_profile_row_labels_impl();
+
+    private async Task on_profile_hotkey_change()
+    {
+        var p = selected_profile();
+        if (p is null || p.builtin)
+        {
+            return;
+        }
+        var captured = await hotkey_capture.capture(this, p.hotkey);
+        if (captured is null)
+        {
+            return;
+        }
+        replace_selected_profile(p with { hotkey = captured });
+        refresh_profile_hotkey_row();
+        refresh_profile_row_labels();
+    }
+
+    private void on_profile_hotkey_clear()
+    {
+        var p = selected_profile();
+        if (p is null || p.builtin || p.hotkey is null)
+        {
+            return;
+        }
+        replace_selected_profile(p with { hotkey = null });
+        refresh_profile_hotkey_row();
+        refresh_profile_row_labels();
+    }
+
+    private void replace_selected_profile(profile updated)
+    {
+        var idx = profile_list.SelectedIndex;
+        if (idx < 0 || idx >= working.profiles.Count)
+        {
+            return;
+        }
+        working.profiles[idx] = updated;
+        // active_profile is compared by name (which we don't change here), so no active-name update needed
+    }
+
+    // returns the description of the binding that already claims `candidate` (a profile name or a
+    // localized global-action label); null when no other binding uses the same combo. The profile
+    // being edited is excluded so a repeated capture of the same combo does not warn against itself.
+    private string? find_hotkey_conflict(hotkey_binding candidate, string owner_profile_name)
+    {
+        var s = working.settings;
+        if (bindings_collide(candidate, s.hotkey_next)) return i18n.t("hk_next");
+        if (bindings_collide(candidate, s.hotkey_prev)) return i18n.t("hk_prev");
+        if (bindings_collide(candidate, s.hotkey_toggle)) return i18n.t("hk_toggle");
+        foreach (var p in working.profiles)
+        {
+            if (string.Equals(p.name, owner_profile_name, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+            if (p.hotkey is { is_set: true } && bindings_collide(candidate, p.hotkey))
+            {
+                return p.name;
+            }
+        }
+        return null;
+    }
+
+    // two bindings collide when they trigger on the same physical event (identical modifiers plus
+    // either the same key or the same mouse button)
+    private static bool bindings_collide(hotkey_binding a, hotkey_binding b)
+    {
+        if (!a.is_set || !b.is_set) return false;
+        if (a.mods != b.mods) return false;
+        if (a.mouse_button != 0 || b.mouse_button != 0)
+        {
+            return a.mouse_button == b.mouse_button;
+        }
+        return a.key == b.key;
     }
 
     // explains the current monitor scope (base value vs a monitor's own values) and toggles the

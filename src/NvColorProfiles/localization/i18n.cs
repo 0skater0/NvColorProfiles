@@ -87,6 +87,11 @@ public static class i18n
         ["profile.include_in_cycle"] = ("Beim Durchschalten berücksichtigen", "Include in cycle"),
         ["profile.include_in_cycle_hint"] = ("Mindestens ein Profil muss aktiviert bleiben, damit die Hotkeys etwas zu tun haben.",
             "At least one profile must stay enabled so the hotkeys have something to switch to."),
+        ["profile.hotkey"] = ("Direkter Hotkey:", "Direct hotkey:"),
+        ["profile.hotkey.change"] = ("Ändern…", "Change…"),
+        ["profile.hotkey.clear"] = ("Entfernen", "Clear"),
+        ["profile.hotkey.none"] = ("Kein Hotkey", "No hotkey"),
+        ["profile.hotkey.conflict"] = ("Bereits belegt durch: {0}", "Already used by: {0}"),
 
         // rules tab
         ["fallback_label"] = ("Fallback-Profil:", "Fallback profile:"),

@@ -89,12 +89,15 @@ public partial class settings_window : Window
         diagnostic_bundle_button.Click += async (_, _) => await on_export_diagnostic_bundle();
         licenses_button.Click += async (_, _) => await licenses_window.show(this);
 
-        hk_next_change.Click += async (_, _) => await rebind(hotkey_service.hotkey.profile_next);
-        hk_prev_change.Click += async (_, _) => await rebind(hotkey_service.hotkey.profile_prev);
-        hk_toggle_change.Click += async (_, _) => await rebind(hotkey_service.hotkey.toggle_auto);
-        hk_next_reset.Click += (_, _) => reset_binding(hotkey_service.hotkey.profile_next);
-        hk_prev_reset.Click += (_, _) => reset_binding(hotkey_service.hotkey.profile_prev);
-        hk_toggle_reset.Click += (_, _) => reset_binding(hotkey_service.hotkey.toggle_auto);
+        profile_hotkey_change.Click += async (_, _) => await on_profile_hotkey_change();
+        profile_hotkey_clear.Click += (_, _) => on_profile_hotkey_clear();
+
+        hk_next_change.Click += async (_, _) => await rebind(hotkey_service.hotkey_kind.profile_next);
+        hk_prev_change.Click += async (_, _) => await rebind(hotkey_service.hotkey_kind.profile_prev);
+        hk_toggle_change.Click += async (_, _) => await rebind(hotkey_service.hotkey_kind.toggle_auto);
+        hk_next_reset.Click += (_, _) => reset_binding(hotkey_service.hotkey_kind.profile_next);
+        hk_prev_reset.Click += (_, _) => reset_binding(hotkey_service.hotkey_kind.profile_prev);
+        hk_toggle_reset.Click += (_, _) => reset_binding(hotkey_service.hotkey_kind.toggle_auto);
 
         language_combo.Items.Add(i18n.t("language.auto"));
         language_combo.Items.Add("Deutsch");
@@ -148,7 +151,7 @@ public partial class settings_window : Window
         var tooltip = i18n.t("profile.include_in_cycle_hint");
         foreach (var p in working.profiles)
         {
-            var row = new profile_row(p.name, p.include_in_cycle, tooltip);
+            var row = new profile_row(p.name, p.include_in_cycle, tooltip, hotkey_suffix_for(p));
             row.PropertyChanged += on_profile_row_changed;
             profile_rows.Add(row);
         }
@@ -157,6 +160,21 @@ public partial class settings_window : Window
         if (index >= 0 && index < profile_list.ItemCount)
         {
             profile_list.SelectedIndex = index;
+        }
+    }
+
+    // formatted "[Strg+Alt+D]" suffix for the profile-list row; empty when no direct hotkey is set
+    private static string hotkey_suffix_for(profile p)
+        => p.hotkey is { is_set: true } ? "[" + p.hotkey.display_name(i18n.is_english) + "]" : string.Empty;
+
+    // updates the suffix on every existing row in-place — used when a global-hotkey change may have
+    // altered the label of a per-profile hotkey (it hasn't changed for the profile row itself, but
+    // callers here also re-run when profile hotkeys are edited so the suffix always stays fresh).
+    private void refresh_profile_row_labels_impl()
+    {
+        for (var i = 0; i < profile_rows.Count && i < working.profiles.Count; i++)
+        {
+            profile_rows[i].hotkey_suffix = hotkey_suffix_for(working.profiles[i]);
         }
     }
 
@@ -279,17 +297,19 @@ public partial class settings_window : Window
     };
 }
 
-/// <summary>Row view-model bound to the profile ListBox: name label plus the include-in-cycle
-/// checkbox. Two-way bindings mutate <see cref="is_in_cycle"/>; the containing window listens for
-/// the property change and pushes the value back into its working config.</summary>
+/// <summary>Row view-model bound to the profile ListBox: name label, the include-in-cycle checkbox
+/// and an optional grey suffix that shows the profile's direct hotkey. Two-way bindings mutate
+/// <see cref="is_in_cycle"/>; the containing window listens for the property change and pushes the
+/// value back into its working config.</summary>
 internal sealed class profile_row : INotifyPropertyChanged
 {
-    public profile_row(string name, bool is_in_cycle, string tooltip)
+    public profile_row(string name, bool is_in_cycle, string tooltip, string hotkey_suffix)
     {
         this.name = name;
         _is_in_cycle = is_in_cycle;
         _can_toggle = true;
         this.tooltip = tooltip;
+        _hotkey_suffix = hotkey_suffix;
     }
 
     public string name { get; }
@@ -324,6 +344,24 @@ internal sealed class profile_row : INotifyPropertyChanged
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(can_toggle)));
         }
     }
+
+    private string _hotkey_suffix;
+    public string hotkey_suffix
+    {
+        get => _hotkey_suffix;
+        set
+        {
+            if (string.Equals(_hotkey_suffix, value, StringComparison.Ordinal))
+            {
+                return;
+            }
+            _hotkey_suffix = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(hotkey_suffix)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(has_hotkey)));
+        }
+    }
+
+    public bool has_hotkey => _hotkey_suffix.Length > 0;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 }

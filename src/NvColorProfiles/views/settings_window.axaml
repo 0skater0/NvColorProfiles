@@ -48,6 +48,9 @@
                               IsEnabled="{Binding can_toggle}"
                               ToolTip.Tip="{Binding tooltip}" />
                     <TextBlock Text="{Binding name}" VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding hotkey_suffix}" VerticalAlignment="Center"
+                               Opacity="0.55" FontSize="11"
+                               IsVisible="{Binding has_hotkey}" />
                   </StackPanel>
                 </DataTemplate>
               </ListBox.ItemTemplate>
@@ -58,6 +61,15 @@
             <StackPanel Spacing="10" Margin="0,0,12,0">
               <ComboBox x:Name="monitor_combo" HorizontalAlignment="Stretch" />
               <TextBlock x:Name="monitor_hint" Opacity="0.7" FontSize="12" TextWrapping="Wrap" Margin="0,-4,0,0" />
+
+              <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,4,0,0">
+                <TextBlock Text="{i18n:tr profile.hotkey}" VerticalAlignment="Center" MinWidth="120" />
+                <TextBlock x:Name="profile_hotkey_label" VerticalAlignment="Center" FontWeight="SemiBold" MinWidth="160" />
+                <Button x:Name="profile_hotkey_change" Content="{i18n:tr profile.hotkey.change}" />
+                <Button x:Name="profile_hotkey_clear" Content="{i18n:tr profile.hotkey.clear}" />
+              </StackPanel>
+              <TextBlock x:Name="profile_hotkey_conflict" Foreground="#e57373" FontSize="12"
+                         TextWrapping="Wrap" IsVisible="False" Margin="0,-4,0,0" />
 
               <Grid ColumnDefinitions="*,Auto">
                 <TextBlock Text="{i18n:tr brightness}" FontWeight="SemiBold" />

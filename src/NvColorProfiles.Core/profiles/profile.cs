@@ -18,6 +18,10 @@ public sealed record profile
     /// older configs (missing the field on disk) behaving exactly as before.</summary>
     public bool include_in_cycle { get; init; } = true;
 
+    /// <summary>Optional direct hotkey that applies this profile immediately. Null means no
+    /// dedicated binding; a bound but unset value (<c>is_set == false</c>) behaves the same.</summary>
+    public hotkey_binding? hotkey { get; init; }
+
     public Dictionary<string, color_settings> displays { get; init; } = new();
 
     /// <summary>Resolves the settings for a display id: exact key, then wildcard, then neutral.</summary>

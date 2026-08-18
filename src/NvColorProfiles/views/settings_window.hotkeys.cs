@@ -14,44 +14,48 @@ public partial class settings_window
         hk_toggle_label.Text = working.settings.hotkey_toggle.display_name(i18n.is_english);
     }
 
-    private async Task rebind(hotkey_service.hotkey id)
+    private async Task rebind(hotkey_service.hotkey_kind kind)
     {
-        var result = await hotkey_capture.capture(this, binding_for(id));
+        var result = await hotkey_capture.capture(this, binding_for(kind));
         if (result is not null)
         {
-            set_binding(id, result);
+            set_binding(kind, result);
             refresh_hotkey_labels();
+            refresh_profile_hotkey_row(); // conflict text may need to update
+            refresh_profile_row_labels();
         }
     }
 
-    private void reset_binding(hotkey_service.hotkey id)
+    private void reset_binding(hotkey_service.hotkey_kind kind)
     {
         var defaults = new app_settings();
-        var fresh = id switch
+        var fresh = kind switch
         {
-            hotkey_service.hotkey.profile_next => defaults.hotkey_next,
-            hotkey_service.hotkey.profile_prev => defaults.hotkey_prev,
+            hotkey_service.hotkey_kind.profile_next => defaults.hotkey_next,
+            hotkey_service.hotkey_kind.profile_prev => defaults.hotkey_prev,
             _ => defaults.hotkey_toggle,
         };
-        set_binding(id, fresh);
+        set_binding(kind, fresh);
         refresh_hotkey_labels();
+        refresh_profile_hotkey_row();
+        refresh_profile_row_labels();
     }
 
-    private hotkey_binding binding_for(hotkey_service.hotkey id) => id switch
+    private hotkey_binding binding_for(hotkey_service.hotkey_kind kind) => kind switch
     {
-        hotkey_service.hotkey.profile_next => working.settings.hotkey_next,
-        hotkey_service.hotkey.profile_prev => working.settings.hotkey_prev,
+        hotkey_service.hotkey_kind.profile_next => working.settings.hotkey_next,
+        hotkey_service.hotkey_kind.profile_prev => working.settings.hotkey_prev,
         _ => working.settings.hotkey_toggle,
     };
 
-    private void set_binding(hotkey_service.hotkey id, hotkey_binding b)
+    private void set_binding(hotkey_service.hotkey_kind kind, hotkey_binding b)
     {
         working = working with
         {
-            settings = id switch
+            settings = kind switch
             {
-                hotkey_service.hotkey.profile_next => working.settings with { hotkey_next = b },
-                hotkey_service.hotkey.profile_prev => working.settings with { hotkey_prev = b },
+                hotkey_service.hotkey_kind.profile_next => working.settings with { hotkey_next = b },
+                hotkey_service.hotkey_kind.profile_prev => working.settings with { hotkey_prev = b },
                 _ => working.settings with { hotkey_toggle = b },
             },
         };

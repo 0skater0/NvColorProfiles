@@ -12,18 +12,22 @@ namespace nv_color_profiles.interop;
 /// </summary>
 internal sealed class hotkey_service : IDisposable
 {
-    public enum hotkey
+    /// <summary>What a triggered binding asks the app to do. The <c>payload</c> disambiguates
+    /// per-instance actions (e.g. which profile to apply for <see cref="apply_profile"/>).</summary>
+    public enum hotkey_kind
     {
-        profile_next = 1,
-        profile_prev = 2,
-        toggle_auto = 3,
+        profile_next,
+        profile_prev,
+        toggle_auto,
+        apply_profile,
     }
 
     /// <summary>Raised on the hotkey thread — marshal to the UI thread before touching app state.</summary>
-    public event Action<hotkey>? triggered;
+    public event Action<hotkey_kind, string?>? triggered;
 
-    /// <summary>One registered hotkey. <see cref="mouse_button"/> non-zero routes via the mouse hook instead of RegisterHotKey.</summary>
-    public sealed record binding(hotkey id, uint mods, uint vk, uint mouse_button = 0);
+    /// <summary>One registered hotkey. <see cref="mouse_button"/> non-zero routes via the mouse hook
+    /// instead of RegisterHotKey. <see cref="id"/> is the wparam that WM_HOTKEY carries back.</summary>
+    public sealed record binding(int id, hotkey_kind kind, string? payload, uint mods, uint vk, uint mouse_button = 0);
 
     private const uint MOD_NOREPEAT = 0x4000;
     private const uint WM_HOTKEY = 0x0312;
@@ -88,11 +92,32 @@ internal sealed class hotkey_service : IDisposable
         {
             if (msg.message == WM_HOTKEY)
             {
-                triggered?.Invoke((hotkey)msg.wParam.ToInt32());
+                dispatch_by_id(msg.wParam.ToInt32());
             }
         }
 
         unregister_all();
+    }
+
+    private void dispatch_by_id(int id)
+    {
+        var match = find_binding(id);
+        if (match is not null)
+        {
+            triggered?.Invoke(match.kind, match.payload);
+        }
+    }
+
+    private binding? find_binding(int id)
+    {
+        for (var i = 0; i < bindings.Count; i++)
+        {
+            if (bindings[i].id == id)
+            {
+                return bindings[i];
+            }
+        }
+        return null;
     }
 
     private void register_all()
@@ -110,7 +135,7 @@ internal sealed class hotkey_service : IDisposable
                 continue; // unset binding
             }
             // MOD_NOREPEAT is a registration concern, not stored in the binding
-            if (!RegisterHotKey(IntPtr.Zero, (int)b.id, b.mods | MOD_NOREPEAT, b.vk))
+            if (!RegisterHotKey(IntPtr.Zero, b.id, b.mods | MOD_NOREPEAT, b.vk))
             {
                 log.LogWarning(
                     "Hotkey {combo} could not be registered (likely claimed by another app)",
@@ -120,15 +145,18 @@ internal sealed class hotkey_service : IDisposable
         if (mouse_bindings.Count > 0)
         {
             mouse ??= new mouse_hook(loggers.CreateLogger<mouse_hook>());
-            mouse.install(mouse_bindings, id => triggered?.Invoke(id));
+            mouse.install(mouse_bindings, dispatch_by_id);
         }
     }
 
     private void unregister_all()
     {
-        foreach (var id in Enum.GetValues<hotkey>())
+        foreach (var b in bindings)
         {
-            UnregisterHotKey(IntPtr.Zero, (int)id);
+            if (b.mouse_button == 0 && b.vk != 0)
+            {
+                UnregisterHotKey(IntPtr.Zero, b.id);
+            }
         }
         mouse?.uninstall();
     }
