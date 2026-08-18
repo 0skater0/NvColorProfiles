@@ -33,6 +33,9 @@ public partial class settings_window : Window
     internal bool reopen_for_language { get; private set; }
     internal int current_tab => tab_control.SelectedIndex;
 
+    /// <summary>Raised after the Save button has persisted the current UI state, before the window closes.</summary>
+    internal event Action? saved;
+
     // parameterless ctor for the XAML designer / loader
     public settings_window()
     {

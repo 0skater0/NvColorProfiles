@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/).
 
-## 1.0.2 — 2026-08-18
+## 1.1.0 — 2026-08-18
 
 ### Fixed
 
@@ -11,6 +11,8 @@ All notable changes to this project are documented here. The format is based on 
 ### Added
 
 - **Export Diagnostic Bundle** in Settings → General for easier bug reports. The zip includes config, GPU info, the full log (capped at 5 MB), and the NVTweak registry branch. Personal data (usernames, user-profile paths, ICC-profile paths) is redacted.
+- **Per-profile "include in cycle" flag** so the next/previous hotkeys skip profiles you never want to land on (e.g. the read-only Default while cycling between day and night).
+- **Side mouse buttons as hotkey trigger.** Bindings now accept a modifier (Ctrl/Alt/Shift/Win) plus mouse button 4 (XButton1) or 5 (XButton2). Bare side buttons stay pass-through so the browser back/forward gestures keep working.
 
 ### Removed
 

@@ -7,7 +7,8 @@ namespace nv_color_profiles.interop;
 /// <summary>
 /// System-wide hotkeys. Registering with a NULL window posts WM_HOTKEY to the registering thread's
 /// queue, so a dedicated thread with a plain GetMessage loop receives them — no hidden window or
-/// WndProc needed. Hotkeys are thread-affine: register/unregister both happen on that thread.
+/// WndProc needed. The same thread also hosts the low-level mouse hook for XButton bindings, so
+/// both live on one thread-affine message loop.
 /// </summary>
 internal sealed class hotkey_service : IDisposable
 {
@@ -21,8 +22,8 @@ internal sealed class hotkey_service : IDisposable
     /// <summary>Raised on the hotkey thread — marshal to the UI thread before touching app state.</summary>
     public event Action<hotkey>? triggered;
 
-    /// <summary>One registered hotkey: which action, plus its modifier mask and virtual-key code.</summary>
-    public sealed record binding(hotkey id, uint mods, uint vk);
+    /// <summary>One registered hotkey. <see cref="mouse_button"/> non-zero routes via the mouse hook instead of RegisterHotKey.</summary>
+    public sealed record binding(hotkey id, uint mods, uint vk, uint mouse_button = 0);
 
     private const uint MOD_NOREPEAT = 0x4000;
     private const uint WM_HOTKEY = 0x0312;
@@ -30,11 +31,17 @@ internal sealed class hotkey_service : IDisposable
     private const uint PM_NOREMOVE = 0x0000;
 
     private readonly ILogger<hotkey_service> log;
+    private readonly ILoggerFactory loggers;
+    private mouse_hook? mouse;
     private Thread? thread;
     private uint thread_id;
     private IReadOnlyList<binding> bindings = Array.Empty<binding>();
 
-    public hotkey_service(ILogger<hotkey_service> log) => this.log = log;
+    public hotkey_service(ILogger<hotkey_service> log, ILoggerFactory loggers)
+    {
+        this.log = log;
+        this.loggers = loggers;
+    }
 
     /// <summary>Sets the hotkeys to register. Call before <see cref="start"/> (stop/set/start to rebind).</summary>
     public void set_bindings(IReadOnlyList<binding> value) => bindings = value;
@@ -90,8 +97,14 @@ internal sealed class hotkey_service : IDisposable
 
     private void register_all()
     {
+        var mouse_bindings = new List<mouse_hook.mouse_binding>();
         foreach (var b in bindings)
         {
+            if (b.mouse_button != 0)
+            {
+                mouse_bindings.Add(new mouse_hook.mouse_binding(b.id, b.mods, b.mouse_button));
+                continue;
+            }
             if (b.vk == 0)
             {
                 continue; // unset binding
@@ -104,17 +117,28 @@ internal sealed class hotkey_service : IDisposable
                     hotkey_binding.describe(b.mods, b.vk, english: true));
             }
         }
+        if (mouse_bindings.Count > 0)
+        {
+            mouse ??= new mouse_hook(loggers.CreateLogger<mouse_hook>());
+            mouse.install(mouse_bindings, id => triggered?.Invoke(id));
+        }
     }
 
-    private static void unregister_all()
+    private void unregister_all()
     {
         foreach (var id in Enum.GetValues<hotkey>())
         {
             UnregisterHotKey(IntPtr.Zero, (int)id);
         }
+        mouse?.uninstall();
     }
 
-    public void Dispose() => stop();
+    public void Dispose()
+    {
+        stop();
+        mouse?.Dispose();
+        mouse = null;
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct MSG

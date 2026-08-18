@@ -39,4 +39,38 @@ public class hotkey_binding_tests
         Assert.Equal("Strg+Alt+A", s.hotkey_toggle.display_name());
         Assert.True(s.hotkey_next.is_set);
     }
+
+    [Fact]
+    public void describe_formats_mouse_buttons_with_modifiers()
+    {
+        Assert.Equal("Strg+Maustaste 4", hotkey_binding.describe(hotkey_binding.MOD_CONTROL, 0, hotkey_binding.XBUTTON1, english: false));
+        Assert.Equal("Alt+Maustaste 5", hotkey_binding.describe(hotkey_binding.MOD_ALT, 0, hotkey_binding.XBUTTON2, english: false));
+        Assert.Equal("Ctrl+Mouse 4", hotkey_binding.describe(hotkey_binding.MOD_CONTROL, 0, hotkey_binding.XBUTTON1, english: true));
+        Assert.Equal("Alt+Mouse 5", hotkey_binding.describe(hotkey_binding.MOD_ALT, 0, hotkey_binding.XBUTTON2, english: true));
+    }
+
+    [Fact]
+    public void describe_prefers_mouse_button_over_virtual_key()
+    {
+        // when both are set (should not happen at runtime) mouse wins so the label matches the trigger
+        Assert.Equal(
+            "Strg+Maustaste 4",
+            hotkey_binding.describe(hotkey_binding.MOD_CONTROL, 0x22, hotkey_binding.XBUTTON1, english: false));
+    }
+
+    [Fact]
+    public void is_set_true_for_mouse_only_binding()
+    {
+        var b = new hotkey_binding { mods = hotkey_binding.MOD_CONTROL, mouse_button = hotkey_binding.XBUTTON1 };
+        Assert.True(b.is_set);
+        Assert.Equal("Strg+Maustaste 4", b.display_name());
+    }
+
+    [Fact]
+    public void is_set_false_when_neither_key_nor_mouse()
+    {
+        var b = new hotkey_binding { mods = hotkey_binding.MOD_CONTROL };
+        Assert.False(b.is_set);
+        Assert.Equal("—", b.display_name());
+    }
 }

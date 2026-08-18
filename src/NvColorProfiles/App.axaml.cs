@@ -66,7 +66,7 @@ public partial class nv_app : Application
         SystemEvents.DisplaySettingsChanged += on_system_display_changed;
         SystemEvents.PowerModeChanged += on_system_power_changed;
 
-        hotkeys = new hotkey_service(loggers.CreateLogger<hotkey_service>());
+        hotkeys = new hotkey_service(loggers.CreateLogger<hotkey_service>(), loggers);
         hotkeys.triggered += on_hotkey;
         sync_hotkeys();
 
@@ -163,9 +163,9 @@ public partial class nv_app : Application
         var s = host.config.settings;
         return new[]
         {
-            new hotkey_service.binding(hotkey_service.hotkey.profile_next, s.hotkey_next.mods, s.hotkey_next.key),
-            new hotkey_service.binding(hotkey_service.hotkey.profile_prev, s.hotkey_prev.mods, s.hotkey_prev.key),
-            new hotkey_service.binding(hotkey_service.hotkey.toggle_auto, s.hotkey_toggle.mods, s.hotkey_toggle.key),
+            new hotkey_service.binding(hotkey_service.hotkey.profile_next, s.hotkey_next.mods, s.hotkey_next.key, s.hotkey_next.mouse_button),
+            new hotkey_service.binding(hotkey_service.hotkey.profile_prev, s.hotkey_prev.mods, s.hotkey_prev.key, s.hotkey_prev.mouse_button),
+            new hotkey_service.binding(hotkey_service.hotkey.toggle_auto, s.hotkey_toggle.mods, s.hotkey_toggle.key, s.hotkey_toggle.mouse_button),
         };
     }
 
@@ -302,6 +302,13 @@ public partial class nv_app : Application
                 return;
             }
             settings = new settings_window(host, tab);
+            settings.saved += () =>
+            {
+                // Save-click applies hotkey/tooltip/menu changes immediately (window stays open)
+                sync_hotkeys();
+                update_tooltip();
+                rebuild_menu();
+            };
             settings.Closed += (_, _) =>
             {
                 // a language change closes the window and asks to reopen it in the new language

@@ -58,6 +58,36 @@ public partial class hotkey_capture : Window
         ok_button.IsEnabled = true;
     }
 
+    protected override void OnPointerPressed(PointerPressedEventArgs e)
+    {
+        var point = e.GetCurrentPoint(this);
+        var side = point.Properties.PointerUpdateKind switch
+        {
+            PointerUpdateKind.XButton1Pressed => hotkey_keys.to_mouse_button(MouseButton.XButton1),
+            PointerUpdateKind.XButton2Pressed => hotkey_keys.to_mouse_button(MouseButton.XButton2),
+            _ => null,
+        };
+        if (side is null)
+        {
+            // let left/right/middle bubble so the OK button and window chrome still work
+            base.OnPointerPressed(e);
+            return;
+        }
+        e.Handled = true;
+
+        var mods = hotkey_keys.to_win_mods(e.KeyModifiers);
+        if (!hotkey_keys.has_required_modifier(mods))
+        {
+            hint.Text = i18n.t("hotkey.need_mod");
+            return;
+        }
+
+        captured = new hotkey_binding { mods = mods, mouse_button = side.Value };
+        preview.Text = captured.display_name(i18n.is_english);
+        hint.Text = string.Empty;
+        ok_button.IsEnabled = true;
+    }
+
     /// <summary>Opens the capture dialog; returns the chosen binding, or null on cancel.</summary>
     public static Task<hotkey_binding?> capture(Window owner, hotkey_binding? current)
         => new hotkey_capture(current).ShowDialog<hotkey_binding?>(owner);

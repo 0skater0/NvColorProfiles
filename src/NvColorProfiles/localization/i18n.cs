@@ -164,8 +164,8 @@ public static class i18n
 
         // hotkey capture
         ["hotkey.title"] = ("Hotkey festlegen", "Set hotkey"),
-        ["hotkey.prompt"] = ("Drücke die gewünschte Tastenkombination (mindestens mit Strg, Alt oder Win).",
-            "Press the desired key combination (with at least Ctrl, Alt or Win)."),
+        ["hotkey.prompt"] = ("Drücke die gewünschte Tastenkombination oder Modifikator + Maustaste 4/5 (mindestens mit Strg, Alt oder Win).",
+            "Press the desired key combination or a modifier + Mouse 4/5 (with at least Ctrl, Alt or Win)."),
         ["hotkey.need_mod"] = ("Mindestens Strg, Alt oder Win zusätzlich drücken.",
             "Also hold at least Ctrl, Alt or Win."),
         ["hotkey.unsupported"] = ("Diese Taste wird nicht unterstützt.", "This key is not supported."),

@@ -48,6 +48,9 @@ public partial class settings_window
     private void on_save()
     {
         persist();
+        // let the host re-sync hotkeys, tooltip and tray menu immediately — otherwise a rebound
+        // hotkey only takes effect on window close.
+        saved?.Invoke();
 
         // keep the window open (so calibration continues) — just confirm briefly
         save_button.Content = i18n.t("saved");

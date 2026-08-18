@@ -32,6 +32,14 @@ internal static class hotkey_keys
         Key.LeftCtrl or Key.RightCtrl or Key.LeftAlt or Key.RightAlt
         or Key.LeftShift or Key.RightShift or Key.LWin or Key.RWin or Key.System;
 
+    /// <summary>Maps an Avalonia mouse button to XBUTTON1/XBUTTON2; null for non-side buttons.</summary>
+    public static uint? to_mouse_button(MouseButton button) => button switch
+    {
+        MouseButton.XButton1 => hotkey_binding.XBUTTON1,
+        MouseButton.XButton2 => hotkey_binding.XBUTTON2,
+        _ => null,
+    };
+
     private static Dictionary<Key, uint> build_map()
     {
         var map = new Dictionary<Key, uint>();

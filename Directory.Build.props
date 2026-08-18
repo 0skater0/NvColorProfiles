@@ -17,7 +17,7 @@
 
   <!-- Package / assembly metadata (shows in the exe's Details tab and on NuGet-style tooling). -->
   <PropertyGroup>
-    <Version>1.0.2</Version>
+    <Version>1.1.0</Version>
     <Authors>0skater0</Authors>
     <Company>0skater0</Company>
     <Product>NvColorProfiles</Product>
