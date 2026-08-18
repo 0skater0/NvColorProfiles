@@ -127,8 +127,8 @@ public static class i18n
         ["diagnostics.export"] = ("Diagnose-Bundle exportieren…", "Export diagnostic bundle…"),
         ["diagnostics.title"] = ("Diagnose-Bundle speichern", "Save diagnostic bundle"),
         ["diagnostics.hint"] = (
-            "Erzeugt eine .zip mit Konfiguration, System- und GPU-Info, dem gesamten Log (bis 5 MB) und dem NVTweak-Registry-Zweig. Häng die Datei an einen Bug-Report auf GitHub an. Benutzername, Benutzerpfade und ICC-Profil-Pfade werden geschwärzt.",
-            "Creates a .zip with your config, system and GPU info, the full log (up to 5 MB), and the NVTweak registry branch. Attach it to a bug report on GitHub. Usernames, user-profile paths and ICC-profile paths are redacted."),
+            "Erzeugt eine .zip mit einer Triage-Zusammenfassung, deiner Konfiguration, System-, GPU- und Farb-Pipeline-Infos pro Monitor (Modellname, HDR, ICC-Profil, aktuelle Digital-Vibrance/Farbton), NVIDIA-Control-Panel-Farbzustand, laufenden Farb-Tools von Drittanbietern, dem gesamten Log (bis 5 MB) und dem NVTweak-Registry-Zweig. Häng die Datei an einen Bug-Report auf GitHub an. Genaue Auflistung und Schwärzungsregeln stehen in docs/PRIVACY.md.",
+            "Creates a .zip with a triage summary, your config, system, GPU and per-monitor color pipeline info (model name, HDR, ICC profile, current Digital Vibrance/Hue), NVIDIA Control Panel color state, currently running third-party color tools, the full log (up to 5 MB), and the NVTweak registry branch. Attach it to a bug report on GitHub. See docs/PRIVACY.md for exact contents and redaction rules."),
         ["diagnostics.done"] = ("Diagnose-Bundle exportiert nach {0}.", "Diagnostic bundle exported to {0}."),
         ["diagnostics.failed"] = ("Diagnose-Bundle fehlgeschlagen: {0}", "Diagnostic bundle failed: {0}"),
         ["language_label"] = ("Sprache", "Language"),

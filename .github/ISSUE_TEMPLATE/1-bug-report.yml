@@ -32,8 +32,8 @@ body:
         1. Open Settings
         2. Create a profile and set vibrance to 70%
         3. Add a rule for game.exe
-        4. Enable Automatic (rules)
-        5. See ...
+        4. Right-click the tray icon and enable "Automatic (rules)"
+        5. Start the game and see ...
     validations:
       required: true
   - type: textarea
@@ -56,35 +56,16 @@ body:
       default: 0
     validations:
       required: true
-  - type: input
-    id: app-version
-    attributes:
-      label: App version
-      description: "The installer/portable file name, or the version in the executable's Details tab."
-      placeholder: "e.g. 1.0.0"
-    validations:
-      required: true
-  - type: input
-    id: driver-gpu
-    attributes:
-      label: NVIDIA driver version and GPU
-      description: "Found in the NVIDIA Control Panel under System Information."
-      placeholder: "e.g. 566.36, RTX 4070"
-    validations:
-      required: true
-  - type: input
-    id: windows-version
-    attributes:
-      label: Windows version
-      description: "Found under Settings > System > About (Edition and Version)."
-      placeholder: "e.g. Windows 11 23H2"
-    validations:
-      required: true
   - type: textarea
     id: diagnostic-bundle
     attributes:
       label: Diagnostic Bundle
-      description: "Strongly recommended. Open the app → Settings → General → **Export Diagnostic Bundle**. A `.zip` will be saved to your Downloads folder. **Drag & drop the .zip from Windows Explorer into this text field**; GitHub will upload it and insert a link. If the app crashes on startup and you can't export a bundle, describe how the crash happens in detail below and mention that no bundle is available. Bug reports without a bundle are much harder to look at because reproducing the exact profile/rule/schedule state is otherwise impossible."
+      description: |
+        **Required unless the app cannot start.** Open the app → Settings → General → **Export Diagnostic Bundle**. A `.zip` is written to your Downloads folder. **Drag & drop the .zip from Windows Explorer into this text field**; GitHub uploads it and inserts a link.
+
+        The bundle already contains your app version, NVIDIA driver, GPU model, Windows version, monitor models, HDR state, ICC profile, NVIDIA Control Panel color state, other color-related tools currently running, the full app log, and your config — so you do not have to fill any of that in by hand.
+
+        What goes into the bundle and what is redacted before it is written is documented in [PRIVACY.md](https://github.com/0skater0/NvColorProfiles/blob/main/docs/PRIVACY.md). The zip is a plain file on your disk — you can open and inspect it before uploading.
       placeholder: "Drop the .zip here"
     validations:
       required: false
@@ -93,28 +74,13 @@ body:
     attributes:
       label: Bundle unavailable
       options:
-        - label: "App does not start (cannot generate a bundle)"
+        - label: "App does not start (cannot generate a bundle) — describe the crash in Additional context below"
           required: false
-  - type: textarea
-    id: log
-    attributes:
-      label: Log file
-      description: "If you can reproduce with diagnostic logging enabled (Settings > General > Diagnostic logging), paste the relevant lines from `%APPDATA%\\NvColorProfiles\\logs\\`. The diagnostic bundle above already includes the full log (size-capped)."
-      render: shell
-    validations:
-      required: false
-  - type: textarea
-    id: screenshots
-    attributes:
-      label: Screenshots / Videos
-      description: "If applicable, add screenshots or a short screen recording to help explain the problem."
-    validations:
-      required: false
   - type: textarea
     id: additional-context
     attributes:
       label: Additional context
-      description: "Anything else worth knowing (multi-monitor setup, other color tools running, etc.)."
+      description: "Anything else worth knowing that isn't in the bundle. Screenshots, videos, notes on your monitor setup, other tools you have tried, and — if the app doesn't start — how exactly it fails."
       placeholder: "Also note that [...]"
     validations:
       required: false

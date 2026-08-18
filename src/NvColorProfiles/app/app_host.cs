@@ -276,7 +276,15 @@ internal sealed class app_host : IDisposable
             app_version: diagnostic_bundle.discover_app_version(),
             config_file_path: app_paths.config_file,
             log_file_path: app_paths.log_file,
-            gpu: build_gpu_snapshot());
+            gpu: build_gpu_snapshot())
+        {
+            app_mode = config.settings.mode,
+            active_profile = active_profile_name ?? config.settings.active_profile,
+            profile_count = config.profiles.Count,
+            rule_count = config.rules.Count,
+            schedule_count = config.schedules.Count,
+            gamma_available = gamma is not null,
+        };
 
         diagnostic_bundle.export_result result;
         if (!string.IsNullOrWhiteSpace(output_file))
@@ -320,12 +328,30 @@ internal sealed class app_host : IDisposable
             log.LogDebug(ex, "Could not enumerate physical GPUs for diagnostic bundle");
         }
 
+        // Instrumented: every probe writes its own stopwatch line to the log so a slow bundle
+        // export can be traced back to a specific call without another round of guessing.
+        var stage = new System.Diagnostics.Stopwatch();
+
+        stage.Restart();
+        IReadOnlyList<display_info.entry> display_config;
+        try
+        {
+            display_config = display_info.enumerate();
+        }
+        catch (Exception ex)
+        {
+            log.LogDebug(ex, "DisplayConfig enumeration failed; falling back to bare GPU snapshot");
+            display_config = Array.Empty<display_info.entry>();
+        }
+        log.LogInformation("diag timing: display_info.enumerate = {ms} ms", stage.ElapsedMilliseconds);
+
         var display_entries = new List<diagnostic_bundle.display_entry>();
         foreach (var d in catalog.get_displays())
         {
             uint? luid = null;
             if (nvapi_loader is not null)
             {
+                stage.Restart();
                 try
                 {
                     luid = nv_display_enum.get_luid_for_display(nvapi_loader, d.display_id);
@@ -334,8 +360,43 @@ internal sealed class app_host : IDisposable
                 {
                     log.LogDebug(ex, "LUID lookup failed for display 0x{id:X8}", d.display_id);
                 }
+                log.LogInformation("diag timing: luid_lookup {gdi} = {ms} ms", d.gdi_name, stage.ElapsedMilliseconds);
             }
-            display_entries.Add(new diagnostic_bundle.display_entry(d.display_id, luid, d.gdi_name));
+
+            var dc = display_config.FirstOrDefault(e => string.Equals(e.gdi_name, d.gdi_name, StringComparison.OrdinalIgnoreCase));
+            hdr_snapshot? hdr = null;
+            string? icc = null;
+            if (dc is not null)
+            {
+                stage.Restart();
+                try { hdr = hdr_info.query(dc.adapter_id, dc.target_id); }
+                catch (Exception ex) { log.LogDebug(ex, "HDR query failed for {gdi}", d.gdi_name); }
+                log.LogInformation("diag timing: hdr_info.query {gdi} = {ms} ms", d.gdi_name, stage.ElapsedMilliseconds);
+            }
+            stage.Restart();
+            try { icc = icc_profile_info.default_profile(d.gdi_name); }
+            catch (Exception ex) { log.LogDebug(ex, "ICC profile lookup failed for {gdi}", d.gdi_name); }
+            log.LogInformation("diag timing: icc_profile_info {gdi} = {ms} ms", d.gdi_name, stage.ElapsedMilliseconds);
+
+            int? current_vibrance = null;
+            int? current_hue = null;
+            stage.Restart();
+            try { current_vibrance = vibrance.get_percent(d.display_id); }
+            catch (Exception ex) { log.LogDebug(ex, "Vibrance read failed for {gdi}", d.gdi_name); }
+            try { current_hue = hue.get_angle(d.display_id); }
+            catch (Exception ex) { log.LogDebug(ex, "Hue read failed for {gdi}", d.gdi_name); }
+            log.LogInformation("diag timing: vibrance+hue {gdi} = {ms} ms", d.gdi_name, stage.ElapsedMilliseconds);
+
+            display_entries.Add(new diagnostic_bundle.display_entry(d.display_id, luid, d.gdi_name)
+            {
+                friendly_name = dc?.friendly_name,
+                edid_vendor = dc?.edid_vendor,
+                edid_product_code = dc?.edid_product_code,
+                current_vibrance = current_vibrance,
+                current_hue = current_hue,
+                hdr = hdr,
+                icc_profile = icc,
+            });
         }
 
         return new diagnostic_bundle.gpu_snapshot(driver_version, driver_branch, gpu_names, display_entries);

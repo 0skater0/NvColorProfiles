@@ -10,9 +10,10 @@ using Microsoft.Win32;
 namespace nv_color_profiles.core.diagnostics;
 
 /// <summary>
-/// Builds a support .zip a user can attach to a bug report. Bundles the config, a short system
-/// summary, GPU/display info, the full log (size-capped) and the NVTweak registry subtree, with
-/// aggressive PII redaction on every text entry.
+/// Builds a support .zip a user can attach to a bug report. Bundles a triage summary, config,
+/// a system+environment report, per-display GPU and color state, a plain-language NVCP snapshot,
+/// a probe of known third-party color tools, the full log (size-capped), and the raw NVTweak
+/// registry subtree as a backup. Every text entry runs through PII redaction.
 /// </summary>
 public static class diagnostic_bundle
 {
@@ -21,14 +22,38 @@ public static class diagnostic_bundle
     private const string NVTWEAK_DEVICES_KEY = @"Software\NVIDIA Corporation\Global\NVTweak\Devices";
 
     private const string README_TEXT =
-        "Attach this file when opening a bug report on GitHub. Contains: your config, system"
-        + " and GPU info, the app log and driver-persistent color state.\r\n"
+        "Attach this file when opening a bug report on GitHub. Contains: a short triage summary,"
+        + " your config, system and GPU/display state (including HDR, ICC profile, Night Light and"
+        + " Windows color filter), NVIDIA Control Panel color state per device, a probe of known"
+        + " third-party color tools, the app log, and the raw NVTweak registry branch.\r\n"
         + "Bundle contents are PII-redacted (usernames, user-profile paths, ICC-profile paths)."
-        + " Typical bundle size is under 100 KB; if a large log is included it may be a few MB.\r\n"
+        + " Typical bundle size is under 200 KB; if a large log is included it may be a few MB.\r\n"
         + "No screenshots. You can review the .zip contents before uploading.\r\n";
 
     /// <summary>A single display line for the GPU report.</summary>
-    public sealed record display_entry(uint display_id, uint? luid, string gdi_name);
+    public sealed record display_entry(uint display_id, uint? luid, string gdi_name)
+    {
+        /// <summary>Monitor model name as reported by the EDID (e.g. "LG UltraGear 34GN850").</summary>
+        public string? friendly_name { get; init; }
+
+        /// <summary>Three-letter EDID manufacturer code (e.g. "LGD", "SAM").</summary>
+        public string? edid_vendor { get; init; }
+
+        /// <summary>EDID product code, opaque per-panel-model identifier.</summary>
+        public ushort? edid_product_code { get; init; }
+
+        /// <summary>Current NVIDIA Digital Vibrance percentage (50 = neutral), null if not queryable.</summary>
+        public int? current_vibrance { get; init; }
+
+        /// <summary>Current NVIDIA Hue angle in degrees (0 = neutral), null if not queryable.</summary>
+        public int? current_hue { get; init; }
+
+        /// <summary>HDR / Advanced Color state, null when the DisplayConfig query failed.</summary>
+        public hdr_snapshot? hdr { get; init; }
+
+        /// <summary>Filename of the currently assigned ICC profile, or null if none / unresolved.</summary>
+        public string? icc_profile { get; init; }
+    }
 
     /// <summary>GPU/driver snapshot; null when no NVAPI session is available.</summary>
     public sealed record gpu_snapshot(
@@ -42,7 +67,26 @@ public static class diagnostic_bundle
         string app_version,
         string config_file_path,
         string log_file_path,
-        gpu_snapshot? gpu);
+        gpu_snapshot? gpu)
+    {
+        /// <summary>The persisted app mode ("manual" / "automatic" / ...) for the summary line.</summary>
+        public string? app_mode { get; init; }
+
+        /// <summary>Name of the profile the app remembers as active.</summary>
+        public string? active_profile { get; init; }
+
+        /// <summary>Profile count, rule count, schedule count — one-line inventory for triage.</summary>
+        public int profile_count { get; init; }
+
+        /// <summary>Rule count for the summary line.</summary>
+        public int rule_count { get; init; }
+
+        /// <summary>Schedule count for the summary line.</summary>
+        public int schedule_count { get; init; }
+
+        /// <summary>True when the NVAPI gamma backend initialised successfully at startup.</summary>
+        public bool gamma_available { get; init; }
+    }
 
     /// <summary>Result of a bundle export: the resulting path and its size in bytes.</summary>
     public sealed record export_result(string zip_path, long zip_bytes);
@@ -57,6 +101,13 @@ public static class diagnostic_bundle
     // match before \r on CRLF streams.
     private static readonly Regex icc_line_regex = new(
         @"^(?<prefix>[^\r\n]*NvCplICCProfile[^\r\n]*=\s*)(?<path>[^\r\n]+)",
+        RegexOptions.Multiline | RegexOptions.Compiled);
+
+    // Recognises an "Applied profile 'X' to N display(s)" line in the log, latest wins.
+    // The name capture is non-greedy up to the trailing " to N display" suffix so profile names
+    // that contain their own apostrophes (e.g. "Lukas' Setup") are preserved intact.
+    private static readonly Regex applied_line_regex = new(
+        @"^(?<ts>\S+\s+\S+)\s+\[INF\]\s+profile_service\s+-\s+Applied profile '(?<name>.+?)' to \d+ display",
         RegexOptions.Multiline | RegexOptions.Compiled);
 
     /// <summary>Returns "NvColorProfiles-diagnostic-YYYYMMDD-HHmmss.zip".</summary>
@@ -102,19 +153,79 @@ public static class diagnostic_bundle
             Directory.CreateDirectory(parent);
         }
 
+        var log_text = read_log_full(bundle_inputs.log_file_path, LOG_MAX_BYTES);
+
         using (var stream = new FileStream(zip_path, FileMode.Create, FileAccess.Write, FileShare.None))
         using (var archive = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: false))
         {
+            write_text(archive, "summary.txt", redact_pii(build_summary_report(bundle_inputs, log_text)));
             write_text(archive, "README.txt", README_TEXT);
             write_text(archive, "system.txt", redact_pii(build_system_report(bundle_inputs.app_version)));
             write_text(archive, "gpu.txt", redact_pii(build_gpu_report(bundle_inputs.gpu)));
-            write_text(archive, "logs.txt", redact_pii(read_log_full(bundle_inputs.log_file_path, LOG_MAX_BYTES)));
+            write_text(archive, "nvcp-state.txt", redact_pii(build_nvcp_report()));
+            write_text(archive, "color-tools.txt", build_color_tools_report());
+            write_text(archive, "logs.txt", redact_pii(log_text));
             write_text(archive, "registry-nvtweak.txt", redact_pii(build_registry_report()));
             copy_config(archive, bundle_inputs.config_file_path);
         }
 
         var size = new FileInfo(zip_path).Length;
         return new export_result(zip_path, size);
+    }
+
+    /// <summary>
+    /// Public for tests: builds the triage summary. Uses the log text passed in so we do not
+    /// re-read the log twice during an export.
+    /// </summary>
+    public static string build_summary_report(inputs bundle_inputs, string log_text)
+    {
+        var sb = new StringBuilder();
+        sb.Append("Triage summary — read this first.\r\n\r\n");
+        sb.Append("App version:      ").Append(bundle_inputs.app_version).Append("\r\n");
+        sb.Append("Switching mode:   ").Append(bundle_inputs.app_mode ?? "(unknown)").Append("\r\n");
+        sb.Append("Active profile:   ").Append(bundle_inputs.active_profile ?? "(unknown)").Append("\r\n");
+        sb.Append("Profiles/rules/schedules: ")
+            .Append(bundle_inputs.profile_count).Append(" / ")
+            .Append(bundle_inputs.rule_count).Append(" / ")
+            .Append(bundle_inputs.schedule_count).Append("\r\n");
+        sb.Append("Gamma backend:    ").Append(bundle_inputs.gamma_available ? "available" : "unavailable").Append("\r\n");
+
+        var (last_ts, last_name) = last_applied_from_log(log_text);
+        sb.Append("Last profile actually applied (from log): ");
+        if (last_name is null)
+        {
+            sb.Append("(none in current log)\r\n");
+        }
+        else
+        {
+            sb.Append('\'').Append(last_name).Append("'  @ ").Append(last_ts).Append("\r\n");
+        }
+
+        if (!string.Equals(last_name, bundle_inputs.active_profile, StringComparison.OrdinalIgnoreCase)
+            && last_name is not null
+            && bundle_inputs.active_profile is not null)
+        {
+            sb.Append("Note: the log's last apply differs from the active profile — the app may be in manual mode with a stale selection, or a profile switch is queued.\r\n");
+        }
+        return sb.ToString();
+    }
+
+    private static (string ts, string? name) last_applied_from_log(string log_text)
+    {
+        if (string.IsNullOrEmpty(log_text))
+        {
+            return ("", null);
+        }
+        Match? last = null;
+        foreach (Match m in applied_line_regex.Matches(log_text))
+        {
+            last = m;
+        }
+        if (last is null)
+        {
+            return ("", null);
+        }
+        return (last.Groups["ts"].Value, last.Groups["name"].Value);
     }
 
     /// <summary>Public for tests: format a system summary without side effects.</summary>
@@ -130,7 +241,36 @@ public static class diagnostic_bundle
         sb.Append("Runtime identifier: ").Append(RuntimeInformation.RuntimeIdentifier).Append("\r\n");
         sb.Append("UI culture: ").Append(CultureInfo.CurrentUICulture.Name).Append("\r\n");
         sb.Append("Culture: ").Append(CultureInfo.CurrentCulture.Name).Append("\r\n");
+
+        if (OperatingSystem.IsWindows())
+        {
+            append_windows_system_details(sb);
+        }
         return sb.ToString();
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static void append_windows_system_details(StringBuilder sb)
+    {
+        var win = windows_version_info.query();
+        sb.Append("Windows: ").Append(windows_version_info.format(win)).Append("\r\n");
+
+        var nl = night_light_info.query();
+        sb.Append("Windows Night Light: ")
+            .Append(!nl.present ? "never configured" : nl.enabled ? "ENABLED" : "off")
+            .Append("\r\n");
+
+        var cf = color_filter_info.query();
+        sb.Append("Windows Color Filter: ");
+        if (!cf.active)
+        {
+            sb.Append("off");
+        }
+        else
+        {
+            sb.Append("ACTIVE (").Append(cf.type).Append(")");
+        }
+        sb.Append("\r\n");
     }
 
     /// <summary>Public for tests: format the GPU report from a snapshot (or a stub when absent).</summary>
@@ -155,7 +295,7 @@ public static class diagnostic_bundle
                 sb.Append("  ").Append(i).Append(": ").Append(gpu.gpu_names[i]).Append("\r\n");
             }
         }
-        sb.Append("Displays:").Append("\r\n");
+        sb.Append("\r\nDisplays:").Append("\r\n");
         if (gpu.displays.Count == 0)
         {
             sb.Append("  (none reported)\r\n");
@@ -165,11 +305,143 @@ public static class diagnostic_bundle
             foreach (var d in gpu.displays)
             {
                 var luid = d.luid is { } value ? $"0x{value:X8}" : "(unresolved)";
-                sb.Append("  displayId=0x").Append(d.display_id.ToString("X8"))
-                  .Append(" luid=").Append(luid)
-                  .Append(" gdi=").Append(string.IsNullOrEmpty(d.gdi_name) ? "(unknown)" : d.gdi_name)
+                var label = !string.IsNullOrEmpty(d.friendly_name)
+                    ? d.friendly_name!
+                    : (string.IsNullOrEmpty(d.gdi_name) ? "(unknown)" : d.gdi_name);
+                sb.Append("  ").Append(label).Append("\r\n");
+                sb.Append("    gdi: ").Append(string.IsNullOrEmpty(d.gdi_name) ? "(unknown)" : d.gdi_name).Append("\r\n");
+                sb.Append("    displayId=0x").Append(d.display_id.ToString("X8"))
+                  .Append(" luid=").Append(luid).Append("\r\n");
+                if (!string.IsNullOrEmpty(d.edid_vendor) || d.edid_product_code is not null)
+                {
+                    sb.Append("    edid: vendor=").Append(d.edid_vendor ?? "?")
+                      .Append(" product=0x").Append((d.edid_product_code ?? 0).ToString("X4"))
+                      .Append("\r\n");
+                }
+                if (d.hdr is { } h)
+                {
+                    // Only the fields that are documented and stable across driver versions land
+                    // in the report. activeColorMode (SDR/WCG/HDR) is the authoritative signal in
+                    // v2; the derived toggle bits are parsed into the snapshot record but not
+                    // surfaced here until their exact layout is confirmed against the shipping
+                    // SDK header. On v1 systems the boolean "advanced color" flag is well-known.
+                    sb.Append("    color pipeline: active mode=").Append(h.active)
+                      .Append(", bpc=").Append(h.bits_per_channel);
+                    if (!h.from_v2)
+                    {
+                        sb.Append(", advanced color=").Append(h.enabled ? "on" : "off");
+                    }
+                    sb.Append("\r\n");
+                }
+                sb.Append("    ICC profile: ")
+                  .Append(string.IsNullOrEmpty(d.icc_profile) ? "system default (sRGB)" : d.icc_profile)
                   .Append("\r\n");
+                if (d.current_vibrance is not null || d.current_hue is not null)
+                {
+                    sb.Append("    current vibrance/hue: ")
+                      .Append(d.current_vibrance?.ToString(CultureInfo.InvariantCulture) ?? "?")
+                      .Append(" / ")
+                      .Append(d.current_hue?.ToString(CultureInfo.InvariantCulture) ?? "?")
+                      .Append("\r\n");
+                }
             }
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Public for tests: aggregated NVIDIA Control Panel color state per device, in plain text.
+    /// Falls back to a stub on non-Windows platforms.
+    /// </summary>
+    public static string build_nvcp_report()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return "(NVIDIA Control Panel state only available on Windows)\r\n";
+        }
+        return build_nvcp_report_windows();
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static string build_nvcp_report_windows()
+    {
+        var sb = new StringBuilder();
+        sb.Append("NVIDIA Control Panel color state per device.\r\n");
+        sb.Append("Note: NVCP device ids do not map 1:1 to NvAPI display ids. Entries here cover\r\n");
+        sb.Append("every panel NVCP has ever seen, including disconnected ones. Cross-check the\r\n");
+        sb.Append("device count against your connected monitors in gpu.txt.\r\n\r\n");
+
+        var devices = nvcp_state.enumerate();
+        if (devices.Count == 0)
+        {
+            sb.Append("(no populated NVCP color device entries found)\r\n");
+            return sb.ToString();
+        }
+
+        var any_enabled = false;
+        foreach (var d in devices)
+        {
+            sb.Append("Device ").Append(d.nvcp_device_id).Append(":\r\n");
+            sb.Append("  color correction enabled: ").Append(d.color_correction_enabled ? "YES" : "no").Append("\r\n");
+            if (d.color_correction_enabled)
+            {
+                any_enabled = true;
+            }
+            sb.Append("  brightness R/G/B: ").Append(d.brightness_r).Append(" / ").Append(d.brightness_g).Append(" / ").Append(d.brightness_b).Append("\r\n");
+            sb.Append("  contrast   R/G/B: ").Append(d.contrast_r).Append(" / ").Append(d.contrast_g).Append(" / ").Append(d.contrast_b).Append("\r\n");
+            sb.Append("  gamma      R/G/B: ").Append(d.gamma_r).Append(" / ").Append(d.gamma_g).Append(" / ").Append(d.gamma_b).Append("\r\n");
+            sb.Append("  vibrance   R/G/B: ").Append(d.vibrance_r).Append(" / ").Append(d.vibrance_g).Append(" / ").Append(d.vibrance_b).Append("\r\n");
+            sb.Append("  hue        R/G/B: ").Append(d.hue_r).Append(" / ").Append(d.hue_g).Append(" / ").Append(d.hue_b).Append("\r\n");
+            sb.Append("  external color ramp: ");
+            if (!d.has_external_colors)
+            {
+                sb.Append("(none)");
+            }
+            else if (d.external_colors_is_identity)
+            {
+                sb.Append("identity (no visible effect)");
+            }
+            else
+            {
+                sb.Append("custom LUT stored");
+            }
+            sb.Append("\r\n");
+            if (!string.IsNullOrEmpty(d.icc_profile_filename))
+            {
+                sb.Append("  ICC profile assigned by NVCP: ").Append(d.icc_profile_filename).Append("\r\n");
+            }
+            if (d.at_default)
+            {
+                sb.Append("  → all sliders at driver default (100)\r\n");
+            }
+            sb.Append("\r\n");
+        }
+        if (any_enabled)
+        {
+            sb.Append("HINT: at least one device has NVCP color correction ENABLED. NVCP writes into\r\n");
+            sb.Append("the same driver pipeline stage NvColorProfiles uses — if the two disagree,\r\n");
+            sb.Append("the last writer wins and results can look inconsistent. Reset NVCP color\r\n");
+            sb.Append("settings to default (\"Restore Defaults\" in \"Adjust desktop color settings\")\r\n");
+            sb.Append("before comparing outputs.\r\n");
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>Public for tests: list of currently running known color-touching tools.</summary>
+    public static string build_color_tools_report()
+    {
+        var sb = new StringBuilder();
+        sb.Append("Known color-related third-party tools currently running.\r\n");
+        sb.Append("Any hit here can push its own gamma LUT or hook the display pipeline the app uses.\r\n\r\n");
+        var hits = color_tool_probe.probe();
+        if (hits.Count == 0)
+        {
+            sb.Append("(none detected)\r\n");
+            return sb.ToString();
+        }
+        foreach (var h in hits)
+        {
+            sb.Append("- ").Append(h.process_name).Append(" — ").Append(h.label).Append("\r\n");
         }
         return sb.ToString();
     }
@@ -238,12 +510,15 @@ public static class diagnostic_bundle
 
         var result = user_profile_path_regex.Replace(content, @"C:\Users\<USER>");
 
-        if (!string.IsNullOrEmpty(user_name) && user_name.Length >= 3)
+        // Minimum length 4 avoids collisions with three-letter tokens that legitimately show up
+        // in the bundle (EDID vendor codes like "GSM", "LGD", "SAM"; driver branch identifiers;
+        // hex byte pairs). Windows account names shorter than that are rare in practice.
+        if (!string.IsNullOrEmpty(user_name) && user_name.Length >= 4)
         {
             result = Regex.Replace(result, Regex.Escape(user_name), "<USER>", RegexOptions.IgnoreCase);
         }
 
-        if (!string.IsNullOrEmpty(host_name) && host_name.Length >= 3)
+        if (!string.IsNullOrEmpty(host_name) && host_name.Length >= 4)
         {
             result = Regex.Replace(result, Regex.Escape(host_name), "<HOSTNAME>", RegexOptions.IgnoreCase);
         }

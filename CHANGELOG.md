@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/).
 
+## 1.2.0 — 2026-08-18
+
+### Added
+
+- **Diagnostic bundle rework.** The support `.zip` now contains a triage summary (mode, active profile, last profile actually applied per the log), monitor model names from EDID instead of only opaque display ids, HDR / Advanced Color state per display, the currently assigned ICC profile per display, current Digital Vibrance and Hue readings, Windows feature version, Night Light and Windows Color Filter state, a plain-language breakdown of NVIDIA Control Panel's persisted color state per device, and a probe of running third-party color tools (f.lux, DisplayCAL, novideo_srgb, DisplayFusion, and others). What the bundle collects and what is redacted is documented in `docs/PRIVACY.md`.
+- **Bug report template streamlined.** The GitHub bug template no longer asks you to type in your app version, NVIDIA driver, GPU model, or Windows version by hand — all of that ships in the diagnostic bundle now.
+
+### Fixed
+
+- **Renaming a profile keeps its rules and schedules working.** Renaming used to leave rules, schedule entries, and the fallback-profile setting pointing at the old name, so an app-open rule would silently stop firing after a rename. Every reference now cascades to the new name.
+
 ## 1.1.0 — 2026-08-18
 
 ### Fixed

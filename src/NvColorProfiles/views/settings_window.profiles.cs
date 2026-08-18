@@ -356,15 +356,19 @@ public partial class settings_window
         {
             return;
         }
-        var renamed = p with { name = unique_name(name) };
-        working.profiles[working.profiles.IndexOf(p)] = renamed;
-        if (string.Equals(working.settings.active_profile, p.name, StringComparison.OrdinalIgnoreCase))
-        {
-            working = working with { settings = working.settings with { active_profile = renamed.name } };
-        }
+        // Cascade the rename through the whole config in one pure step so rules keep firing and
+        // the active/fallback selection stays pointed at the right profile. The uniquified name
+        // is what we cascade with, so a collision (renaming "Foo" to a name that already exists)
+        // rewires references to "Foo (2)", not to the pre-existing "Foo".
+        var renamed_name = unique_name(name);
+        working = working.with_profile_renamed(p.name, renamed_name);
+
         populate_profiles();
         populate_fallback();
-        profile_list.SelectedIndex = working.profiles.IndexOf(renamed);
+        refresh_rules();
+        refresh_schedules();
+        profile_list.SelectedIndex = working.profiles.FindIndex(
+            x => string.Equals(x.name, renamed_name, StringComparison.Ordinal));
     }
 
     private async Task on_delete()
