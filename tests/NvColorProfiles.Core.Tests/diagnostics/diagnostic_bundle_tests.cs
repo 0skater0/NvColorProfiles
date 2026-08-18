@@ -68,8 +68,9 @@ public sealed class diagnostic_bundle_tests : IDisposable
         var text = diagnostic_bundle.read_log_full(log, 5 * 1024 * 1024);
 
         Assert.DoesNotContain("[truncated:", text);
-        Assert.Contains("line-1\r\n", text);
-        Assert.Contains("line-250\r\n", text);
+        // File.WriteAllLines uses Environment.NewLine — LF on Linux CI, CRLF on Windows — so match on either
+        Assert.Contains("line-1" + Environment.NewLine, text);
+        Assert.Contains("line-250" + Environment.NewLine, text);
         Assert.Contains("line-500", text);
     }
 
