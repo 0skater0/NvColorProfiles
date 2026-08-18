@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Microsoft.Extensions.Logging;
 using nv_color_profiles.app;
 using nv_color_profiles.core.diagnostics;
+using nv_color_profiles.updates;
 
 namespace nv_color_profiles;
 
@@ -26,6 +27,17 @@ internal static class program
             var log = loggers.CreateLogger("startup");
             using var probe = new app_host(loggers);
             log.LogInformation("Self-check OK (nvapi={available})", probe.nvapi_available);
+            return 0;
+        }
+
+        // --register-toast: called silently by the installer post-install step to plant the
+        // AUMID-tagged Start-Menu shortcut so the very first toast already carries our icon.
+        // No UI, no network calls; exits after ensuring the shortcut.
+        if (args.Contains("--register-toast"))
+        {
+            using var loggers = log_setup.create_factory(LogLevel.Information);
+            var log = loggers.CreateLogger("register-toast");
+            toast_notifier.ensure_shortcut(log);
             return 0;
         }
 

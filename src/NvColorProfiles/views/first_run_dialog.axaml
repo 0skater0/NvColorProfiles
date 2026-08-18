@@ -1,0 +1,17 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:i18n="clr-namespace:nv_color_profiles.localization"
+        x:Class="nv_color_profiles.views.first_run_dialog"
+        Title="{i18n:tr first_run.title}"
+        Width="420" SizeToContent="Height"
+        CanResize="False" ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner">
+  <StackPanel Margin="20" Spacing="16">
+    <TextBlock Text="{i18n:tr first_run.body}" TextWrapping="Wrap" />
+    <CheckBox x:Name="opt_in_check" Content="{i18n:tr first_run.checkbox}" IsChecked="True" />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+      <Button x:Name="continue_button" Content="{i18n:tr first_run.continue}" MinWidth="120"
+              Classes="accent" IsDefault="True" />
+    </StackPanel>
+  </StackPanel>
+</Window>

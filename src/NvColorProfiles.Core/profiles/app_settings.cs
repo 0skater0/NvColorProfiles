@@ -38,4 +38,19 @@ public sealed record app_settings
     public hotkey_binding hotkey_next { get; init; } = new() { mods = 0x0003, key = 0x22 };
     public hotkey_binding hotkey_prev { get; init; } = new() { mods = 0x0003, key = 0x21 };
     public hotkey_binding hotkey_toggle { get; init; } = new() { mods = 0x0003, key = 0x41 };
+
+    /// <summary>User opted into the daily GitHub release check. Only ever consulted after
+    /// <see cref="update_check_prompted"/> is true, so the first-run modal always decides.</summary>
+    public bool update_check_enabled { get; init; } = true;
+
+    /// <summary>Set once the user has answered the first-run "check for updates" dialog. Until then
+    /// the app must not make any network requests, regardless of <see cref="update_check_enabled"/>.</summary>
+    public bool update_check_prompted { get; init; }
+
+    /// <summary>Tag returned by the last successful GitHub check (without a leading "v"). Kept so we
+    /// can show the badge across restarts and skip the toast when the user has already seen it.</summary>
+    public string? latest_seen_version { get; init; }
+
+    /// <summary>UTC timestamp of the last check attempt (success or error). Drives the 24h cadence.</summary>
+    public DateTime? last_update_check_at { get; init; }
 }

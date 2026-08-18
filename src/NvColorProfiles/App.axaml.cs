@@ -11,8 +11,10 @@ using nv_color_profiles.app;
 using nv_color_profiles.core;
 using nv_color_profiles.core.diagnostics;
 using nv_color_profiles.core.profiles;
+using nv_color_profiles.core.updates;
 using nv_color_profiles.interop;
 using nv_color_profiles.localization;
+using nv_color_profiles.updates;
 using nv_color_profiles.views;
 
 namespace nv_color_profiles;
@@ -32,6 +34,11 @@ public partial class nv_app : Application
     private TrayIcon tray = null!;
     private IClassicDesktopStyleApplicationLifetime? desktop;
     private settings_window? settings;
+    private update_checker? updater;
+    private DispatcherTimer? update_timer;
+    // populated by the periodic checker and used by the tray tooltip/menu; null = no update seen yet
+    private string? update_available_version;
+    private string? update_available_url;
 
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
@@ -71,8 +78,140 @@ public partial class nv_app : Application
         sync_hotkeys();
 
         apply_startup_mode();
+        // dispatch onto the UI loop's next tick so Show() runs after framework startup completes
+        Dispatcher.UIThread.Post(() => _ = start_update_flow_async());
         base.OnFrameworkInitializationCompleted();
     }
+
+    // Runs the first-run modal (once), then arms the periodic 24h check. Never awaited by the
+    // framework hook so a slow prompt or a network hiccup can't stall the tray coming up.
+    private async Task start_update_flow_async()
+    {
+        try
+        {
+            if (!host.config.settings.update_check_prompted)
+            {
+                await show_first_run_modal_async();
+            }
+            arm_update_timer();
+        }
+        catch (Exception ex)
+        {
+            log.LogInformation(ex, "Update flow bootstrap failed");
+        }
+    }
+
+    private async Task show_first_run_modal_async()
+    {
+        try
+        {
+            var opted_in = await first_run_dialog.ask();
+            host.update_config(host.config with
+            {
+                settings = host.config.settings with
+                {
+                    update_check_enabled = opted_in,
+                    update_check_prompted = true,
+                },
+            });
+        }
+        catch (Exception ex)
+        {
+            log.LogInformation(ex, "First-run modal failed; falling back to opt-in default");
+            host.update_config(host.config with
+            {
+                settings = host.config.settings with { update_check_prompted = true },
+            });
+        }
+    }
+
+    // 5-minute delay before the first check keeps startup responsive; the DispatcherTimer then fires
+    // hourly and asks should_check(...) whether the 24h cadence is due.
+    private void arm_update_timer()
+    {
+        if (update_timer is not null)
+        {
+            return;
+        }
+        update_timer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(60) };
+        update_timer.Tick += async (_, _) => await maybe_run_periodic_check_async();
+        DispatcherTimer.RunOnce(async () =>
+        {
+            await maybe_run_periodic_check_async();
+            update_timer.Start();
+        }, TimeSpan.FromMinutes(5));
+    }
+
+    private async Task maybe_run_periodic_check_async()
+    {
+        if (!host.config.settings.update_check_enabled || !host.config.settings.update_check_prompted)
+        {
+            return;
+        }
+        if (!update_checker.should_check(host.config.settings.last_update_check_at, DateTime.UtcNow))
+        {
+            return;
+        }
+        var result = await run_update_check_async();
+        if (result.is_newer && result.latest_version is not null && result.latest_url is not null)
+        {
+            var already_seen = string.Equals(host.config.settings.latest_seen_version, result.latest_version, OIC);
+            update_available_version = result.latest_version;
+            update_available_url = result.latest_url;
+            update_tooltip();
+            rebuild_menu();
+            // only surface the toast once per new release; the badge stays until acknowledged
+            if (!already_seen)
+            {
+                var body = string.Format(i18n.t("updates.toast_body"), result.latest_version);
+                toast_notifier.show_update_available(i18n.t("updates.toast_title"), body, result.latest_url, log);
+            }
+            host.update_config(host.config with
+            {
+                settings = host.config.settings with { latest_seen_version = result.latest_version },
+            });
+        }
+    }
+
+    private async Task<update_check_result> run_update_check_async()
+    {
+        updater ??= new update_checker(current_app_version(), loggers.CreateLogger<update_checker>());
+        var result = await updater.check_async(current_app_version());
+        host.update_config(host.config with
+        {
+            settings = host.config.settings with { last_update_check_at = result.checked_at },
+        });
+        return result;
+    }
+
+    private async Task<(string message, string? release_url)> run_manual_update_check_async()
+    {
+        var result = await run_update_check_async();
+        if (result.error is not null)
+        {
+            return (string.Format(i18n.t("updates.error"), result.error), null);
+        }
+        if (result.is_newer && result.latest_version is not null && result.latest_url is not null)
+        {
+            update_available_version = result.latest_version;
+            update_available_url = result.latest_url;
+            update_tooltip();
+            rebuild_menu();
+            host.update_config(host.config with
+            {
+                settings = host.config.settings with { latest_seen_version = result.latest_version },
+            });
+            return (string.Format(i18n.t("updates.available"), result.latest_version), result.latest_url);
+        }
+        // no newer release; drop any stale badge (e.g. server rolled a release back)
+        update_available_version = null;
+        update_available_url = null;
+        update_tooltip();
+        rebuild_menu();
+        return (i18n.t("updates.up_to_date"), null);
+    }
+
+    private static string current_app_version() => diagnostic_bundle.discover_app_version();
 
     private bool is_auto => string.Equals(host.mode, "auto", OIC);
 
@@ -316,15 +455,40 @@ public partial class nv_app : Application
         var settings_item = new NativeMenuItem(i18n.t("tray.settings"));
         settings_item.Click += (_, _) => open_settings();
         menu.Items.Add(settings_item);
+        if (update_available_version is not null && update_available_url is not null)
+        {
+            var update_item = new NativeMenuItem(string.Format(i18n.t("updates.available"), update_available_version));
+            update_item.Click += (_, _) => open_release_page();
+            menu.Items.Add(update_item);
+        }
         var exit_item = new NativeMenuItem(i18n.t("tray.exit"));
         exit_item.Click += (_, _) => desktop?.Shutdown();
         menu.Items.Add(exit_item);
     }
 
+    private void open_release_page()
+    {
+        if (string.IsNullOrWhiteSpace(update_available_url))
+        {
+            return;
+        }
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(update_available_url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            log.LogInformation(ex, "Opening release URL from tray failed");
+        }
+    }
+
     private void update_tooltip()
-        => tray.ToolTipText = host.nvapi_available
-            ? $"NvColorProfiles — {host.active_profile_name ?? "Default"}{(is_auto ? " (Auto)" : string.Empty)}"
-            : i18n.t("tray.tooltip_no_gpu");
+    {
+        var suffix = update_available_version is null ? string.Empty : i18n.t("tray.tooltip_update_suffix");
+        tray.ToolTipText = host.nvapi_available
+            ? $"NvColorProfiles — {host.active_profile_name ?? "Default"}{(is_auto ? " (Auto)" : string.Empty)}{suffix}"
+            : i18n.t("tray.tooltip_no_gpu") + suffix;
+    }
 
     private void open_settings(int tab = 0)
     {
@@ -336,6 +500,7 @@ public partial class nv_app : Application
                 return;
             }
             settings = new settings_window(host, tab);
+            settings.manual_update_check = run_manual_update_check_async;
             settings.saved += () =>
             {
                 // Save-click applies hotkey/tooltip/menu changes immediately (window stays open)
@@ -381,6 +546,8 @@ public partial class nv_app : Application
             hotkeys.Dispose();
         }
         schedule_timer?.Stop();
+        update_timer?.Stop();
+        updater?.dispose();
         watcher?.Dispose();
         host.Dispose();
     }

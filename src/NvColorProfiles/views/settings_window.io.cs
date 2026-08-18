@@ -30,6 +30,7 @@ public partial class settings_window
                 diagnostic_logging = diagnostic_check.IsChecked ?? false,
                 autostart = autostart_check.IsChecked ?? false,
                 hotkeys_enabled = hotkeys_check.IsChecked ?? true,
+                update_check_enabled = update_check_check.IsChecked ?? true,
                 fallback_profile = fallback,
                 switch_delay_ms = (int)delay_slider.Value,
                 mode = host.mode, // the tray owns the mode
@@ -43,6 +44,18 @@ public partial class settings_window
     {
         host.set_autostart(autostart_check.IsChecked ?? false);
         host.update_config(collect());
+        // reset the dirty baseline so the title/save-button flip back to clean
+        clean_snapshot = profile_store.to_json(collect());
+        refresh_dirty_state();
+    }
+
+    // updates the title and the save button to reflect whether there are unsaved edits
+    private void refresh_dirty_state()
+    {
+        var current = profile_store.to_json(collect());
+        var dirty = !string.Equals(current, clean_snapshot, StringComparison.Ordinal);
+        Title = dirty ? clean_title + " •" : clean_title;
+        save_button.IsEnabled = dirty;
     }
 
     private void on_save()

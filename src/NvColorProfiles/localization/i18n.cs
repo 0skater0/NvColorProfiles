@@ -41,6 +41,7 @@ public static class i18n
         ["cancel"] = ("Abbrechen", "Cancel"),
         ["save"] = ("Speichern", "Save"),
         ["close"] = ("Schließen", "Close"),
+        ["close.saves_hint"] = ("Änderungen werden auch beim Schließen gespeichert.", "Changes are saved when the window is closed."),
         ["new"] = ("Neu", "New"),
         ["edit"] = ("Bearbeiten", "Edit"),
         ["delete"] = ("Löschen", "Delete"),
@@ -182,5 +183,25 @@ public static class i18n
         ["tray.settings"] = ("Einstellungen…", "Settings…"),
         ["tray.exit"] = ("Beenden", "Exit"),
         ["tray.tooltip_no_gpu"] = ("NvColorProfiles — keine NVIDIA-GPU", "NvColorProfiles — no NVIDIA GPU"),
+        ["tray.tooltip_update_suffix"] = (" — Update verfügbar", " — Update available"),
+
+        // first-run update-check prompt
+        ["first_run.title"] = ("NvColorProfiles", "NvColorProfiles"),
+        ["first_run.body"] = (
+            "Sollen wir dich benachrichtigen, wenn auf GitHub eine neue Version verfügbar ist?",
+            "Notify you when a new version is available on GitHub?"),
+        ["first_run.checkbox"] = ("Auf Updates prüfen", "Check for updates"),
+        ["first_run.continue"] = ("Weiter", "Continue"),
+
+        // updates — settings tab + status labels
+        ["updates.check_enabled"] = ("Auf Updates prüfen", "Check for updates"),
+        ["updates.check_now"] = ("Jetzt auf Updates prüfen", "Check for updates now"),
+        ["updates.checking"] = ("Prüfe…", "Checking…"),
+        ["updates.up_to_date"] = ("Du hast die aktuellste Version.", "You have the latest version."),
+        ["updates.available"] = ("Update verfügbar: v{0}", "Update available: v{0}"),
+        ["updates.open_release"] = ("Release-Seite öffnen", "Open release page"),
+        ["updates.error"] = ("Update-Prüfung fehlgeschlagen: {0}", "Update check failed: {0}"),
+        ["updates.toast_title"] = ("NvColorProfiles", "NvColorProfiles"),
+        ["updates.toast_body"] = ("Update verfügbar: v{0}", "Update available: v{0}"),
     };
 }

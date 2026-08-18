@@ -23,6 +23,9 @@ public partial class settings_window : Window
     private readonly List<string> monitor_keys = new();
     private readonly ObservableCollection<profile_row> profile_rows = new();
     private readonly DispatcherTimer preview_timer = new() { Interval = TimeSpan.FromMilliseconds(40) };
+    private readonly DispatcherTimer dirty_timer = new() { Interval = TimeSpan.FromMilliseconds(500) };
+    private string clean_snapshot = string.Empty;
+    private string clean_title = string.Empty;
     private bool preview_dirty;
     private bool loading;
     private bool suppress_fallback_sync;
@@ -35,6 +38,10 @@ public partial class settings_window : Window
 
     /// <summary>Raised after the Save button has persisted the current UI state, before the window closes.</summary>
     internal event Action? saved;
+
+    /// <summary>Set by the host so the Settings window can trigger a manual "Check now" run. The
+    /// callback returns the release URL when an update is available, or null otherwise.</summary>
+    internal Func<Task<(string message, string? release_url)>>? manual_update_check;
 
     // parameterless ctor for the XAML designer / loader
     public settings_window()
@@ -88,6 +95,8 @@ public partial class settings_window : Window
         import_button.Click += async (_, _) => await on_import();
         diagnostic_bundle_button.Click += async (_, _) => await on_export_diagnostic_bundle();
         licenses_button.Click += async (_, _) => await licenses_window.show(this);
+        check_updates_button.Click += async (_, _) => await on_check_updates_now();
+        open_release_button.Click += (_, _) => on_open_release_url();
 
         profile_hotkey_change.Click += async (_, _) => await on_profile_hotkey_change();
         profile_hotkey_clear.Click += (_, _) => on_profile_hotkey_clear();
@@ -118,9 +127,11 @@ public partial class settings_window : Window
         wire_direct_entry(vibrance_value, vibrance_slider, 1);
         wire_direct_entry(hue_value, hue_slider, 1);
         preview_timer.Tick += do_preview;
-        Closed += (_, _) => preview_timer.Stop();
+        Closed += (_, _) => { preview_timer.Stop(); dirty_timer.Stop(); };
         // persist edits when the window closes, so nothing is lost by closing without "Save"
         Closing += (_, _) => persist();
+        // hint the close button that closing still commits any unsaved edits
+        ToolTip.SetTip(close_button, i18n.t("close.saves_hint"));
 
         populate_profiles();
         populate_monitors();
@@ -130,6 +141,14 @@ public partial class settings_window : Window
         refresh_rules();
         refresh_schedules();
         location_label.Text = string.Format(i18n.t("config_location"), nv_color_profiles.core.app_paths.config_file);
+
+        // dirty-tracking: snapshot the config, then poll for divergence and reflect it in the title
+        // and save-button state
+        clean_title = Title ?? string.Empty;
+        clean_snapshot = profile_store.to_json(collect());
+        dirty_timer.Tick += (_, _) => refresh_dirty_state();
+        dirty_timer.Start();
+        refresh_dirty_state();
 
         if (profile_list.ItemCount > 0)
         {
@@ -244,6 +263,7 @@ public partial class settings_window : Window
         restore_check.IsChecked = working.settings.restore_on_exit;
         diagnostic_check.IsChecked = working.settings.diagnostic_logging;
         hotkeys_check.IsChecked = working.settings.hotkeys_enabled;
+        update_check_check.IsChecked = working.settings.update_check_enabled;
         refresh_hotkey_labels();
         delay_slider.Value = Math.Clamp(working.settings.switch_delay_ms, 0, 60000);
         update_delay_label();
@@ -251,6 +271,47 @@ public partial class settings_window : Window
         suppress_language_sync = true;
         language_combo.SelectedIndex = working.settings.language switch { "de" => 1, "en" => 2, _ => 0 };
         suppress_language_sync = false;
+    }
+
+    private string? pending_release_url;
+
+    private async Task on_check_updates_now()
+    {
+        if (manual_update_check is null)
+        {
+            return;
+        }
+        check_updates_button.IsEnabled = false;
+        open_release_button.IsVisible = false;
+        pending_release_url = null;
+        update_status.Text = i18n.t("updates.checking");
+        try
+        {
+            var (message, release_url) = await manual_update_check.Invoke();
+            update_status.Text = message;
+            pending_release_url = release_url;
+            open_release_button.IsVisible = release_url is not null;
+        }
+        finally
+        {
+            check_updates_button.IsEnabled = true;
+        }
+    }
+
+    private void on_open_release_url()
+    {
+        if (string.IsNullOrWhiteSpace(pending_release_url))
+        {
+            return;
+        }
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(pending_release_url) { UseShellExecute = true });
+        }
+        catch
+        {
+            // best-effort — a broken URL should not crash the settings window
+        }
     }
 
     private void on_language_changed()

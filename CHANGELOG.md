@@ -14,6 +14,7 @@ All notable changes to this project are documented here. The format is based on 
 - **Per-profile "include in cycle" flag** so the next/previous hotkeys skip profiles you never want to land on (e.g. the read-only Default while cycling between day and night).
 - **Side mouse buttons as hotkey trigger.** Bindings now accept a modifier (Ctrl/Alt/Shift/Win) plus mouse button 4 (XButton1) or 5 (XButton2). Bare side buttons stay pass-through so the browser back/forward gestures keep working.
 - **Per-profile direct hotkeys.** Every profile can now be given its own optional hotkey (keyboard or side mouse button with a modifier) that applies it immediately. Conflicts with other profile hotkeys or the global next/previous/toggle bindings are shown as a warning under the picker but not blocked.
+- **Optional daily update check** with a Windows toast, tray marker, and manual Check-now button in Settings. Off until the first-run prompt is answered; the app makes no network requests before then.
 
 ### Removed
 

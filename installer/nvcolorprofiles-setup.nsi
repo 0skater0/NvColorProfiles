@@ -167,6 +167,12 @@ Section "NvColorProfiles" SecMain
     CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
   ${EndIf}
 
+  ; Tag the freshly created Start-Menu shortcut with the app's AUMID so Windows renders our
+  ; icon in the toast header. The app runs itself silently once with --register-toast; that
+  ; path only writes the shortcut and exits (no UI, no network).
+  nsExec::Exec '"$INSTDIR\${APP_EXE}" --register-toast'
+  Pop $0
+
   ; Autostart via the same per-user Run value the app's own settings toggle manages,
   ; so the in-app checkbox stays in sync.
   ${If} $AutostartEnabled == ${BST_CHECKED}
@@ -226,6 +232,10 @@ Section "Uninstall"
   ; remove the whole Start-Menu folder so both shortcuts go regardless of their language
   RMDir /r "$SMPROGRAMS\${APP_NAME}"
   Delete "$DESKTOP\${APP_NAME}.lnk"
+
+  ; drop the AUMID-carrier shortcut + extracted icon planted by --register-toast
+  Delete "$SMPROGRAMS\NvColorProfiles.lnk"
+  Delete "$SMPROGRAMS\NvColorProfiles.ico"
 
   ; only drop the Run value if it points at THIS install (don't clobber a portable autostart)
   ReadRegStr $0 HKCU "${RUN_REGKEY}" "${RUN_VALUE}"

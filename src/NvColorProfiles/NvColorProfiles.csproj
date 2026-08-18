@@ -2,15 +2,21 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- Windows-specific TFM so the WinRT projection for ToastNotificationManager is in scope
+         (needed by Microsoft.Toolkit.Uwp.Notifications). EnableWindowsTargeting lets the Linux
+         CI runner build for this TFM without a Windows host. -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <UseWindowsForms>false</UseWindowsForms>
+    <UseWPF>false</UseWPF>
     <RootNamespace>nv_color_profiles</RootNamespace>
     <AssemblyName>NvColorProfiles</AssemblyName>
     <ApplicationIcon>assets\nvcolorprofiles.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
-    <!-- This is a Windows-only app (NvAPI/gdi32/registry); net10.0 TFM is only for the Linux
-         cross-build. Suppress the cross-platform analyzer for the deliberately Windows-only calls. -->
+    <!-- NvAPI/gdi32/registry are Windows-only calls; the analyzer would otherwise flag them
+         even under a Windows-targeting TFM. -->
     <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
 
@@ -20,6 +26,12 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.3" />
     <!-- first-party; DisplaySettingsChanged + PowerModeChanged to re-assert gamma after the OS resets it -->
     <PackageReference Include="Microsoft.Win32.SystemEvents" Version="10.0.8" />
+    <!-- Windows toast notifications (used for the update-available notification). Pinned; the
+         package was published 2022-11-01 and is well past the supply-chain cooldown. -->
+    <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.3" />
+    <!-- Transitive of Microsoft.Toolkit.Uwp.Notifications; the 4.7.0 baseline has GHSA-rxg9-xrhp-64gj.
+         Pin to the current .NET 10 line to pull in the patched version. -->
+    <PackageReference Include="System.Drawing.Common" Version="10.0.8" />
   </ItemGroup>
 
   <ItemGroup>
