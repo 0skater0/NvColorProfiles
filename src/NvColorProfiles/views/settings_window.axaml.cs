@@ -77,6 +77,7 @@ public partial class settings_window : Window
         delay_slider.ValueChanged += (_, _) => update_delay_label();
         export_button.Click += async (_, _) => await on_export();
         import_button.Click += async (_, _) => await on_import();
+        diagnostic_bundle_button.Click += async (_, _) => await on_export_diagnostic_bundle();
         licenses_button.Click += async (_, _) => await licenses_window.show(this);
 
         hk_next_change.Click += async (_, _) => await rebind(hotkey_service.hotkey.profile_next);

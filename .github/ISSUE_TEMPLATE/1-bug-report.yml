@@ -49,9 +49,10 @@ body:
     attributes:
       label: How often does this occur?
       options:
-        - Always (every time)
-        - Sometimes (intermittent)
-        - Only once
+        - Always
+        - Sometimes
+        - Rarely
+        - Once
       default: 0
     validations:
       required: true
@@ -80,10 +81,25 @@ body:
     validations:
       required: true
   - type: textarea
+    id: diagnostic-bundle
+    attributes:
+      label: Diagnostic Bundle
+      description: "Strongly recommended. Open the app → Settings → General → **Export Diagnostic Bundle**. A `.zip` will be saved to your Downloads folder. **Drag & drop the .zip from Windows Explorer into this text field**; GitHub will upload it and insert a link. If the app crashes on startup and you can't export a bundle, describe how the crash happens in detail below and mention that no bundle is available. Bug reports without a bundle are much harder to look at because reproducing the exact profile/rule/schedule state is otherwise impossible."
+      placeholder: "Drop the .zip here"
+    validations:
+      required: false
+  - type: checkboxes
+    id: bundle-unavailable
+    attributes:
+      label: Bundle unavailable
+      options:
+        - label: "App does not start (cannot generate a bundle)"
+          required: false
+  - type: textarea
     id: log
     attributes:
       label: Log file
-      description: "If you can reproduce with diagnostic logging enabled (Settings > General > Diagnostic logging), paste the relevant lines from `%APPDATA%\\NvColorProfiles\\logs\\`."
+      description: "If you can reproduce with diagnostic logging enabled (Settings > General > Diagnostic logging), paste the relevant lines from `%APPDATA%\\NvColorProfiles\\logs\\`. The diagnostic bundle above already includes the full log (size-capped)."
       render: shell
     validations:
       required: false

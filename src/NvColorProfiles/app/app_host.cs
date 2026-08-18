@@ -1,6 +1,10 @@
 using Microsoft.Extensions.Logging;
+using NvAPIWrapper;
+using NvAPIWrapper.GPU;
 using nv_color_profiles.core;
+using nv_color_profiles.core.diagnostics;
 using nv_color_profiles.core.display;
+using nv_color_profiles.core.interop.nvapi;
 using nv_color_profiles.core.profiles;
 using nv_color_profiles.core.rules;
 
@@ -14,6 +18,8 @@ internal sealed class app_host : IDisposable
 {
     private readonly ILogger<app_host> log;
     private readonly nv_session session;
+    private readonly nv_api_loader? nvapi_loader;
+    private readonly nvapi_gamma_backend? gamma;
     private readonly nv_display_catalog catalog;
     private readonly vibrance_control vibrance;
     private readonly hue_control hue;
@@ -30,7 +36,10 @@ internal sealed class app_host : IDisposable
         catalog = new nv_display_catalog(session, loggers.CreateLogger<nv_display_catalog>());
         vibrance = new vibrance_control(session, loggers.CreateLogger<vibrance_control>());
         hue = new hue_control(session, loggers.CreateLogger<hue_control>());
-        controller = new nv_display_controller(vibrance, hue, loggers.CreateLogger<nv_display_controller>());
+
+        // NVAPI when the loader initialises; otherwise gamma is disabled (DVC/hue still work).
+        (nvapi_loader, gamma) = build_gamma_backend(loggers);
+        controller = new nv_display_controller(gamma, vibrance, hue, loggers.CreateLogger<nv_display_controller>());
 
         store = new profile_store(app_paths.config_file, loggers.CreateLogger<profile_store>());
         config = store.load();
@@ -40,8 +49,27 @@ internal sealed class app_host : IDisposable
         baseline = color_baseline.capture(catalog, vibrance, hue, loggers.CreateLogger<color_baseline>());
 
         log.LogInformation(
-            "Host ready (nvapi={available}, profiles={profiles})",
-            session.is_available, config.profiles.Count);
+            "Host ready (nvapi={available}, gamma={gamma}, profiles={profiles})",
+            session.is_available, gamma is null ? "unavailable" : "available", config.profiles.Count);
+    }
+
+    private (nv_api_loader? loader, nvapi_gamma_backend? backend) build_gamma_backend(ILoggerFactory loggers)
+    {
+        if (!session.is_available)
+        {
+            log.LogInformation("gamma backend unavailable — no NVIDIA session");
+            return (null, null);
+        }
+        try
+        {
+            var loader = new nv_api_loader();
+            return (loader, new nvapi_gamma_backend(loader, loggers.CreateLogger<nvapi_gamma_backend>()));
+        }
+        catch (Exception ex)
+        {
+            log.LogWarning(ex, "gamma backend unavailable — NvAPI init failed");
+            return (null, null);
+        }
     }
 
     public app_config config { get; private set; }
@@ -98,7 +126,7 @@ internal sealed class app_host : IDisposable
     }
 
     /// <summary>Restores the displays to the state captured at startup.</summary>
-    public void restore_baseline() => baseline.restore(vibrance, hue);
+    public void restore_baseline() => baseline.restore(vibrance, hue, gamma);
 
     /// <summary>
     /// Hard reset: applies neutral (identity gamma, vibrance 50, hue 0 = NVIDIA defaults) to every
@@ -127,9 +155,8 @@ internal sealed class app_host : IDisposable
     public void reapply_active() => apply_active();
 
     /// <summary>
-    /// Re-asserts whatever profile is currently active on the hardware, without changing any state.
-    /// Used after the OS wipes the gamma ramp (standby resume, resolution change, exclusive-
-    /// fullscreen exit) — in auto mode this is the rule-driven profile, otherwise the active one.
+    /// Re-asserts the currently active profile without state change. Used after the OS wipes the
+    /// gamma ramp (standby resume, resolution change, fullscreen-exclusive exit).
     /// </summary>
     public void reapply_current()
     {
@@ -184,19 +211,17 @@ internal sealed class app_host : IDisposable
     }
 
     /// <summary>
-    /// Resolves the profile for a foreground window (app rule, then time schedule, then fallback)
-    /// and applies it — but only when it differs from the currently active profile. Transient: the
-    /// auto-switch does not overwrite the user's manually chosen active profile in the config.
+    /// Resolves the profile for a foreground window (app rule → schedule → fallback) and applies
+    /// it if it differs. Transient: does not overwrite the config's active profile.
     /// </summary>
     public void apply_for_foreground(string process_name, string window_title)
     {
-        // precedence: a matching app rule, then the time-of-day schedule, then the fallback
         var name = rule_engine.evaluate(config.rules, process_name, window_title)
                    ?? schedule_engine.evaluate(config.schedules, TimeOnly.FromDateTime(DateTime.Now))
                    ?? config.settings.fallback_profile;
         var target = config.find_profile(name) ?? config.find_profile(app_config.DEFAULT_PROFILE_NAME);
 
-        // visible with diagnostic logging on — lets the user discover exact process names
+        // helps the user discover exact process names when diagnostic logging is on
         log.LogDebug(
             "Foreground process='{process}' title='{title}' -> profile '{profile}'",
             process_name, window_title, target?.name);
@@ -207,5 +232,89 @@ internal sealed class app_host : IDisposable
         }
     }
 
-    public void Dispose() => session.Dispose();
+    /// <summary>
+    /// Writes a support .zip (config, system, GPU, log tail, NVTweak registry) into
+    /// <paramref name="output_dir"/> (defaults to Downloads) and returns the created path.
+    /// </summary>
+    public string export_diagnostic_bundle(string? output_dir = null, string? output_file = null)
+    {
+        var inputs = new diagnostic_bundle.inputs(
+            app_version: diagnostic_bundle.discover_app_version(),
+            config_file_path: app_paths.config_file,
+            log_file_path: app_paths.log_file,
+            gpu: build_gpu_snapshot());
+
+        diagnostic_bundle.export_result result;
+        if (!string.IsNullOrWhiteSpace(output_file))
+        {
+            result = diagnostic_bundle.export_to_file(inputs, output_file);
+        }
+        else
+        {
+            var target_dir = string.IsNullOrWhiteSpace(output_dir)
+                ? diagnostic_bundle.default_output_dir()
+                : output_dir;
+            result = diagnostic_bundle.export(inputs, target_dir);
+        }
+
+        log.LogInformation(
+            "Diagnostic bundle exported: {path} ({kb} KB)",
+            result.zip_path, (result.zip_bytes + 1023) / 1024);
+        return result.zip_path;
+    }
+
+    private diagnostic_bundle.gpu_snapshot? build_gpu_snapshot()
+    {
+        if (!session.is_available)
+        {
+            return null;
+        }
+
+        var driver_version = format_driver(NVIDIA.DriverVersion);
+        var driver_branch = NVIDIA.DriverBranchVersion ?? string.Empty;
+
+        var gpu_names = new List<string>();
+        try
+        {
+            foreach (var gpu in PhysicalGPU.GetPhysicalGPUs())
+            {
+                gpu_names.Add(gpu.FullName ?? "(unnamed GPU)");
+            }
+        }
+        catch (Exception ex)
+        {
+            log.LogDebug(ex, "Could not enumerate physical GPUs for diagnostic bundle");
+        }
+
+        var display_entries = new List<diagnostic_bundle.display_entry>();
+        foreach (var d in catalog.get_displays())
+        {
+            uint? luid = null;
+            if (nvapi_loader is not null)
+            {
+                try
+                {
+                    luid = nv_display_enum.get_luid_for_display(nvapi_loader, d.display_id);
+                }
+                catch (Exception ex)
+                {
+                    log.LogDebug(ex, "LUID lookup failed for display 0x{id:X8}", d.display_id);
+                }
+            }
+            display_entries.Add(new diagnostic_bundle.display_entry(d.display_id, luid, d.gdi_name));
+        }
+
+        return new diagnostic_bundle.gpu_snapshot(driver_version, driver_branch, gpu_names, display_entries);
+    }
+
+    private static string format_driver(uint version) => $"{version / 100}.{version % 100:D2}";
+
+    /// <summary>True when the NVAPI gamma backend is wired up; false on non-NVIDIA systems or when NvAPI init failed.</summary>
+    public bool gamma_available => gamma is not null;
+
+    public void Dispose()
+    {
+        nvapi_loader?.Dispose();
+        session.Dispose();
+    }
 }

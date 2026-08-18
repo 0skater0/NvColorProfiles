@@ -1,5 +1,6 @@
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using nv_color_profiles.core.diagnostics;
 using nv_color_profiles.core.display;
 using nv_color_profiles.core.profiles;
 using nv_color_profiles.localization;
@@ -151,5 +152,55 @@ public partial class settings_window
         io_status.Text =
             string.Format(i18n.t("import.done"), working.profiles.Count, working.rules.Count, working.schedules.Count)
             + (active_reset ? i18n.t("import.active_reset") : string.Empty);
+    }
+
+    // hands the user a support .zip. Shows a save dialog pre-filled with a Downloads target and a
+    // timestamped filename; a silent cancel returns without touching the status label. The write
+    // itself runs off-thread so the UI stays responsive on a spinning disk.
+    private async Task on_export_diagnostic_bundle()
+    {
+        var suggested_name = diagnostic_bundle.default_file_name(DateTime.Now);
+
+        IStorageFolder? start_location = null;
+        var default_dir = diagnostic_bundle.default_output_dir();
+        if (Directory.Exists(default_dir))
+        {
+            start_location = await StorageProvider.TryGetFolderFromPathAsync(default_dir);
+        }
+
+        var file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = i18n.t("diagnostics.title"),
+            SuggestedFileName = suggested_name,
+            DefaultExtension = "zip",
+            SuggestedStartLocation = start_location,
+            FileTypeChoices = new[] { new FilePickerFileType("ZIP") { Patterns = new[] { "*.zip" } } },
+        });
+        if (file is null)
+        {
+            return;
+        }
+
+        var target_path = file.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(target_path))
+        {
+            diagnostic_status.Text = string.Format(i18n.t("diagnostics.failed"), file.Name);
+            return;
+        }
+
+        diagnostic_bundle_button.IsEnabled = false;
+        try
+        {
+            var path = await Task.Run(() => host.export_diagnostic_bundle(output_file: target_path));
+            diagnostic_status.Text = string.Format(i18n.t("diagnostics.done"), path);
+        }
+        catch (Exception ex)
+        {
+            diagnostic_status.Text = string.Format(i18n.t("diagnostics.failed"), ex.Message);
+        }
+        finally
+        {
+            diagnostic_bundle_button.IsEnabled = true;
+        }
     }
 }

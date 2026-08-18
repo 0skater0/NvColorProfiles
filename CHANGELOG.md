@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/).
 
+## 1.0.2 — 2026-08-18
+
+### Fixed
+
+- Gamma now applies through the NVIDIA display pipeline LUT, so it survives exclusive-fullscreen games that used to overwrite the GDI gamma ramp.
+
+### Added
+
+- **Export Diagnostic Bundle** in Settings → General for easier bug reports. The zip includes config, GPU info, the full log (capped at 5 MB), and the NVTweak registry branch. Personal data (usernames, user-profile paths, ICC-profile paths) is redacted.
+
+### Removed
+
+- Legacy GDI gamma backend. NvColorProfiles is NVIDIA-only by design and the GDI fallback was never reached in practice.
+
 ## 1.0.1 — 2026-06-13
 
 ### Fixed

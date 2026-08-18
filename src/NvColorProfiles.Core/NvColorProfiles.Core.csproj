@@ -4,14 +4,14 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>nv_color_profiles.core</RootNamespace>
     <AssemblyName>NvColorProfiles.Core</AssemblyName>
+    <!-- Required for NVAPI interop: fixed buffers, function pointers, raw struct pointers. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Microsoft first-party logging abstractions + factory. Pinned (supply-chain cooldown). -->
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.7" />
-    <!-- NVIDIA NvAPI .NET wrapper (vibrance/hue/display enumeration). Pinned; published 2020,
-         227k+ downloads, stable. Brightness/contrast/gamma use the Windows gamma ramp instead. -->
-    <PackageReference Include="NvAPIWrapper.Net" Version="0.8.1.101" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.7" /> <!-- Pinned; supply-chain cooldown -->
+    <!-- NvAPI .NET wrapper for vibrance/hue/display enumeration. -->
+    <PackageReference Include="NvAPIWrapper.Net" Version="0.8.1.101" /> <!-- Pinned; supply-chain cooldown -->
   </ItemGroup>
 
 </Project>

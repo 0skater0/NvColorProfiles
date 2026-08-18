@@ -8,13 +8,9 @@
 namespace nv_color_profiles.core.display;
 
 /// <summary>
-/// A monitor gamma lookup table (256 entries per channel) computed from brightness, contrast and
-/// gamma — the three NVIDIA "Desktop Color Settings" sliders that are applied via the gamma ramp.
-///
-/// The curve formula is the proven NVIDIA-Control-Panel-matching algorithm from falahati's
-/// WindowsDisplayAPI (LGPL-3.0; see the license note at the top of this file), reimplemented here
-/// to keep the dependency surface small and the math unit-testable. All channels share one curve
-/// (R=G=B); per-channel control is out of scope.
+/// Gamma LUT (256 entries/channel) computed from brightness/contrast/gamma sliders.
+/// Curve formula matches NVCP (algorithm: falahati/WindowsDisplayAPI, LGPL-3.0, see file header).
+/// All channels share one curve; per-channel control is out of scope.
 /// </summary>
 public sealed class gamma_ramp
 {
@@ -44,9 +40,72 @@ public sealed class gamma_ramp
         return buffer;
     }
 
+    /// <summary>Number of ramp entries per channel in the NVAPI-native format.</summary>
+    public const int NVAPI_DATA_POINTS = 1024;
+
+    /// <summary>Length of the R,G,B-interleaved NVAPI ramp buffer expected by the driver.</summary>
+    public const int NVAPI_RAMP_LENGTH = NVAPI_DATA_POINTS * 3;
+
+    /// <summary>
+    /// Builds a 3072-entry float ramp (R,G,B interleaved) in the shape
+    /// <c>NvAPI_DISP_SetTargetGammaCorrection</c> expects, using NVCP's exact curve (nvBrightness §6).
+    /// UI values map linearly to driver units (b/c 0..200, gamma 40..280; 100 = neutral).
+    /// </summary>
+    public static float[] to_nvapi_ramp(double brightness, double contrast, double gamma)
+    {
+        var buffer = new float[NVAPI_RAMP_LENGTH];
+        fill_nvapi_ramp(brightness, contrast, gamma, buffer);
+        return buffer;
+    }
+
+    /// <summary>
+    /// Same as <see cref="to_nvapi_ramp(double,double,double)"/> but writes into the caller's buffer
+    /// (must be at least <see cref="NVAPI_RAMP_LENGTH"/> floats). Lets hot paths use a pooled buffer.
+    /// </summary>
+    public static void fill_nvapi_ramp(double brightness, double contrast, double gamma, Span<float> buffer)
+    {
+        if (buffer.Length < NVAPI_RAMP_LENGTH)
+        {
+            throw new ArgumentException(
+                $"buffer must be at least {NVAPI_RAMP_LENGTH} floats, got {buffer.Length}",
+                nameof(buffer));
+        }
+
+        var brightness_raw = Math.Clamp(brightness, 0, 1) * 200;
+        var contrast_raw = Math.Clamp(contrast, 0, 1) * 200;
+        var gamma_raw = Math.Clamp(gamma, 0.4, 2.8) * 100;
+
+        var contrast_norm = (contrast_raw - 100) / 100.0;
+        var brightness_shift = (brightness_raw - 100) / 100.0;
+        var gamma_inv = 1.0 / (gamma_raw / 100.0);
+
+        for (var i = 0; i < NVAPI_DATA_POINTS; i++)
+        {
+            var x = i / (double)(NVAPI_DATA_POINTS - 1);
+            double val;
+            if (contrast_norm <= 0)
+            {
+                val = (contrast_norm + 1) * (x - 0.5);
+            }
+            else
+            {
+                // guard against divide-by-zero as contrast_norm approaches 1
+                val = (x - 0.5) / Math.Max(1 - contrast_norm, 1e-6);
+            }
+            val += brightness_shift + 0.5;
+            val = Math.Clamp(val, 0, 1);
+            val = Math.Pow(val, gamma_inv);
+            val = Math.Clamp(val, 0, 1);
+
+            var f = (float)val;
+            buffer[i * 3 + 0] = f;
+            buffer[i * 3 + 1] = f;
+            buffer[i * 3 + 2] = f;
+        }
+    }
+
     private static ushort[] calculate_lut(double brightness, double contrast, double gamma)
     {
-        // Match the NVIDIA panel behaviour (algorithm: falahati/WindowsDisplayAPI, LGPL-3.0).
         gamma = Math.Clamp(gamma, 0.4, 2.8);
         contrast = (Math.Clamp(contrast, 0, 1) - 0.5) * 2;   // -> [-1, 1]
         brightness = (Math.Clamp(brightness, 0, 1) - 0.5) * 2; // -> [-1, 1]

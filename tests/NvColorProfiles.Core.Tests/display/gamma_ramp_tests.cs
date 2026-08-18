@@ -82,4 +82,81 @@ public class gamma_ramp_tests
             Assert.Equal(ramp.values[i], buffer[i + 512]);
         }
     }
+
+    [Fact]
+    public void nvapi_ramp_has_expected_shape()
+    {
+        var ramp = gamma_ramp.to_nvapi_ramp(0.5, 0.5, 1.0);
+        Assert.Equal(1024 * 3, ramp.Length);
+    }
+
+    [Fact]
+    public void nvapi_ramp_identity_at_endpoints()
+    {
+        var ramp = gamma_ramp.to_nvapi_ramp(0.5, 0.5, 1.0);
+        Assert.Equal(0.0f, ramp[0], precision: 3);        // R[0]
+        Assert.Equal(0.0f, ramp[1], precision: 3);        // G[0]
+        Assert.Equal(0.0f, ramp[2], precision: 3);        // B[0]
+        Assert.Equal(1.0f, ramp[(1024 - 1) * 3 + 0], precision: 3);
+        Assert.Equal(1.0f, ramp[(1024 - 1) * 3 + 1], precision: 3);
+        Assert.Equal(1.0f, ramp[(1024 - 1) * 3 + 2], precision: 3);
+    }
+
+    [Fact]
+    public void nvapi_ramp_is_interleaved_rgb_per_index()
+    {
+        // per-channel writes (r=g=b) mean interleaved triplets must be identical within each index
+        var ramp = gamma_ramp.to_nvapi_ramp(0.6, 0.55, 1.3);
+        for (var i = 0; i < 1024; i++)
+        {
+            Assert.Equal(ramp[i * 3 + 0], ramp[i * 3 + 1]);
+            Assert.Equal(ramp[i * 3 + 0], ramp[i * 3 + 2]);
+        }
+    }
+
+    [Fact]
+    public void nvapi_ramp_monotonic_non_decreasing_for_neutral()
+    {
+        var ramp = gamma_ramp.to_nvapi_ramp(0.5, 0.5, 1.0);
+        for (var i = 1; i < 1024; i++)
+        {
+            Assert.True(ramp[i * 3] >= ramp[(i - 1) * 3]);
+        }
+    }
+
+    [Fact]
+    public void nvapi_ramp_higher_gamma_lifts_midtone()
+    {
+        var neutral = gamma_ramp.to_nvapi_ramp(0.5, 0.5, 1.0);
+        var raised = gamma_ramp.to_nvapi_ramp(0.5, 0.5, 2.0);
+        Assert.True(raised[512 * 3] > neutral[512 * 3]);
+    }
+
+    [Fact]
+    public void fill_nvapi_ramp_matches_allocating_variant()
+    {
+        var expected = gamma_ramp.to_nvapi_ramp(0.55, 0.6, 1.1);
+        var buffer = new float[gamma_ramp.NVAPI_RAMP_LENGTH];
+        gamma_ramp.fill_nvapi_ramp(0.55, 0.6, 1.1, buffer);
+        Assert.Equal(expected, buffer);
+    }
+
+    [Fact]
+    public void fill_nvapi_ramp_accepts_oversized_buffer()
+    {
+        var oversized = new float[gamma_ramp.NVAPI_RAMP_LENGTH + 128];
+        gamma_ramp.fill_nvapi_ramp(0.5, 0.5, 1.0, oversized);
+        var expected = gamma_ramp.to_nvapi_ramp(0.5, 0.5, 1.0);
+        for (var i = 0; i < gamma_ramp.NVAPI_RAMP_LENGTH; i++)
+        {
+            Assert.Equal(expected[i], oversized[i]);
+        }
+    }
+
+    [Fact]
+    public void fill_nvapi_ramp_rejects_undersized_buffer()
+    {
+        var too_small = new float[gamma_ramp.NVAPI_RAMP_LENGTH - 1];
+        Assert.Throws<ArgumentException>(() => gamma_ramp.fill_nvapi_ramp(0.5, 0.5, 1.0, too_small));
+    }
 }
