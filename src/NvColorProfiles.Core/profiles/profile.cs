@@ -13,6 +13,11 @@ public sealed record profile
 
     public string name { get; init; } = "";
     public bool builtin { get; init; }
+
+    /// <summary>Whether the global next/previous hotkey visits this profile. Default true keeps
+    /// older configs (missing the field on disk) behaving exactly as before.</summary>
+    public bool include_in_cycle { get; init; } = true;
+
     public Dictionary<string, color_settings> displays { get; init; } = new();
 
     /// <summary>Resolves the settings for a display id: exact key, then wildcard, then neutral.</summary>

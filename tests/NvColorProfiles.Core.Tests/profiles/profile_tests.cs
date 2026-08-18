@@ -36,4 +36,15 @@ public sealed class profile_tests
         var p = new profile { name = "empty" };
         Assert.Equal(color_settings.neutral, p.settings_for(1));
     }
+
+    [Fact]
+    public void include_in_cycle_defaults_to_true()
+    {
+        var p = new profile { name = "any" };
+        Assert.True(p.include_in_cycle);
+    }
+
+    [Fact]
+    public void uniform_factory_keeps_include_in_cycle_default()
+        => Assert.True(profile.uniform("p", color_settings.neutral).include_in_cycle);
 }

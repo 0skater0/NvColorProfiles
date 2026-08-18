@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:i18n="clr-namespace:nv_color_profiles.localization"
+        xmlns:views="clr-namespace:nv_color_profiles.views"
         x:Class="nv_color_profiles.views.settings_window"
         Title="{i18n:tr settings.title}"
         Width="900" Height="780"
@@ -39,7 +40,18 @@
               <Button x:Name="rename_button" Content="{i18n:tr rename}" HorizontalAlignment="Stretch" />
               <Button x:Name="delete_button" Content="{i18n:tr delete}" HorizontalAlignment="Stretch" />
             </StackPanel>
-            <ListBox x:Name="profile_list" />
+            <ListBox x:Name="profile_list">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="views:profile_row">
+                  <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <CheckBox IsChecked="{Binding is_in_cycle, Mode=TwoWay}"
+                              IsEnabled="{Binding can_toggle}"
+                              ToolTip.Tip="{Binding tooltip}" />
+                    <TextBlock Text="{Binding name}" VerticalAlignment="Center" />
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
           </DockPanel>
 
           <ScrollViewer Grid.Column="1" AllowAutoHide="True" HorizontalScrollBarVisibility="Disabled">

@@ -106,7 +106,9 @@ internal sealed class app_host : IDisposable
 
     /// <summary>
     /// Switches to the next/previous profile relative to the active one (wraps around) and persists
-    /// it as the active profile. Used by the global hotkeys.
+    /// it as the active profile. Used by the global hotkeys. Profiles with include_in_cycle=false
+    /// are skipped; if the active profile is itself excluded (e.g. applied by a rule), the search
+    /// walks the full list in the requested direction until it finds an included candidate.
     /// </summary>
     public void cycle(int direction)
     {
@@ -114,15 +116,47 @@ internal sealed class app_host : IDisposable
         {
             return;
         }
-        var current = active_profile_name ?? config.settings.active_profile;
-        var index = config.profiles.FindIndex(p => string.Equals(p.name, current, StringComparison.OrdinalIgnoreCase));
-        if (index < 0)
+        var pool = config.profiles.Where(p => p.include_in_cycle).ToList();
+        if (pool.Count == 0)
         {
-            index = 0;
+            log.LogDebug("cycle: no profiles marked include_in_cycle; hotkey is a no-op");
+            return;
         }
+
+        var current = active_profile_name ?? config.settings.active_profile;
+        var pool_index = pool.FindIndex(p => string.Equals(p.name, current, StringComparison.OrdinalIgnoreCase));
+        profile target;
+        if (pool_index >= 0)
+        {
+            var count = pool.Count;
+            var next = ((pool_index + direction) % count + count) % count;
+            target = pool[next];
+        }
+        else
+        {
+            // active profile is not in the cycle pool (excluded by the user, or applied by a rule
+            // that referenced an excluded profile) — anchor the search on its position in the full
+            // list and walk in the requested direction until we land on an included profile
+            var full_index = config.profiles.FindIndex(p => string.Equals(p.name, current, StringComparison.OrdinalIgnoreCase));
+            target = find_pool_neighbor(full_index < 0 ? 0 : full_index, direction) ?? pool[0];
+        }
+        apply(target);
+    }
+
+    private profile? find_pool_neighbor(int start_full_index, int direction)
+    {
         var count = config.profiles.Count;
-        var next = ((index + direction) % count + count) % count;
-        apply(config.profiles[next]);
+        var step = direction >= 0 ? 1 : -1;
+        for (var i = 1; i <= count; i++)
+        {
+            var idx = ((start_full_index + step * i) % count + count) % count;
+            var candidate = config.profiles[idx];
+            if (candidate.include_in_cycle)
+            {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     /// <summary>Restores the displays to the state captured at startup.</summary>

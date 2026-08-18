@@ -84,6 +84,9 @@ public static class i18n
         ["profile.copy_suffix"] = (" Kopie", " Copy"),
         ["profile.delete_title"] = ("Profil löschen", "Delete profile"),
         ["profile.delete_confirm"] = ("Profil \"{0}\" wirklich löschen?", "Delete profile \"{0}\"?"),
+        ["profile.include_in_cycle"] = ("Beim Durchschalten berücksichtigen", "Include in cycle"),
+        ["profile.include_in_cycle_hint"] = ("Mindestens ein Profil muss aktiviert bleiben, damit die Hotkeys etwas zu tun haben.",
+            "At least one profile must stay enabled so the hotkeys have something to switch to."),
 
         // rules tab
         ["fallback_label"] = ("Fallback-Profil:", "Fallback profile:"),

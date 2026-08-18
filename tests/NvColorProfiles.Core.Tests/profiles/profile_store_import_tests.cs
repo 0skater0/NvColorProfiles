@@ -82,6 +82,43 @@ public class profile_store_import_tests
         => Assert.Null(profile_store.from_json("{ this is not valid json"));
 
     [Fact]
+    public void include_in_cycle_survives_roundtrip()
+    {
+        var config = app_config.create_default() with
+        {
+            profiles = new List<profile>
+            {
+                profile.uniform(app_config.DEFAULT_PROFILE_NAME, color_settings.neutral, builtin: true)
+                    with { include_in_cycle = false },
+                profile.uniform("Day", color_settings.neutral),
+            },
+        };
+
+        var round = profile_store.from_json(profile_store.to_json(config));
+
+        Assert.NotNull(round);
+        Assert.False(round!.find_profile(app_config.DEFAULT_PROFILE_NAME)!.include_in_cycle);
+        Assert.True(round.find_profile("Day")!.include_in_cycle);
+    }
+
+    [Fact]
+    public void legacy_json_without_include_in_cycle_defaults_to_true()
+    {
+        // old configs written before the flag existed must keep every profile in the cycle pool
+        var json = """
+        {
+          "schema_version": 1,
+          "profiles": [ { "name": "Gaming", "displays": {} } ]
+        }
+        """;
+
+        var config = profile_store.from_json(json);
+
+        Assert.NotNull(config);
+        Assert.True(config!.find_profile("Gaming")!.include_in_cycle);
+    }
+
+    [Fact]
     public void to_json_then_from_json_roundtrips_profiles_rules_schedules()
     {
         var config = app_config.create_default() with

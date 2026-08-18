@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -19,11 +21,13 @@ public partial class settings_window : Window
     private readonly IReadOnlyList<nv_display> displays;
     private app_config working;
     private readonly List<string> monitor_keys = new();
+    private readonly ObservableCollection<profile_row> profile_rows = new();
     private readonly DispatcherTimer preview_timer = new() { Interval = TimeSpan.FromMilliseconds(40) };
     private bool preview_dirty;
     private bool loading;
     private bool suppress_fallback_sync;
     private bool suppress_language_sync;
+    private bool suppress_row_sync;
 
     // set when a language change asks the app to reopen this window so the new language takes hold
     internal bool reopen_for_language { get; private set; }
@@ -44,6 +48,8 @@ public partial class settings_window : Window
         displays = host.displays; // enumerate once — re-querying per slider tick was the lag
         working = clone(host.config);
         InitializeComponent();
+
+        profile_list.ItemsSource = profile_rows;
 
         save_button.Click += (_, _) => on_save();
         close_button.Click += (_, _) => Close();
@@ -129,14 +135,55 @@ public partial class settings_window : Window
     private void populate_profiles()
     {
         var index = profile_list.SelectedIndex;
-        profile_list.Items.Clear();
+        suppress_row_sync = true;
+        // detach change handlers so cleared rows don't fire back into working
+        foreach (var old in profile_rows)
+        {
+            old.PropertyChanged -= on_profile_row_changed;
+        }
+        profile_rows.Clear();
+        var tooltip = i18n.t("profile.include_in_cycle_hint");
         foreach (var p in working.profiles)
         {
-            profile_list.Items.Add(p.name);
+            var row = new profile_row(p.name, p.include_in_cycle, tooltip);
+            row.PropertyChanged += on_profile_row_changed;
+            profile_rows.Add(row);
         }
+        refresh_row_toggle_state();
+        suppress_row_sync = false;
         if (index >= 0 && index < profile_list.ItemCount)
         {
             profile_list.SelectedIndex = index;
+        }
+    }
+
+    private void on_profile_row_changed(object? sender, PropertyChangedEventArgs e)
+    {
+        if (suppress_row_sync || sender is not profile_row row)
+        {
+            return;
+        }
+        if (e.PropertyName != nameof(profile_row.is_in_cycle))
+        {
+            return;
+        }
+        var idx = profile_rows.IndexOf(row);
+        if (idx < 0 || idx >= working.profiles.Count)
+        {
+            return;
+        }
+        working.profiles[idx] = working.profiles[idx] with { include_in_cycle = row.is_in_cycle };
+        refresh_row_toggle_state();
+    }
+
+    // UX guard: when exactly one profile is still included, disable that row's checkbox so the
+    // user cannot end up with an empty pool that makes the hotkeys silently no-op
+    private void refresh_row_toggle_state()
+    {
+        var included = profile_rows.Count(r => r.is_in_cycle);
+        foreach (var r in profile_rows)
+        {
+            r.can_toggle = !(included == 1 && r.is_in_cycle);
         }
     }
 
@@ -227,4 +274,53 @@ public partial class settings_window : Window
         rules = c.rules.ToList(),
         schedules = c.schedules.ToList(),
     };
+}
+
+/// <summary>Row view-model bound to the profile ListBox: name label plus the include-in-cycle
+/// checkbox. Two-way bindings mutate <see cref="is_in_cycle"/>; the containing window listens for
+/// the property change and pushes the value back into its working config.</summary>
+internal sealed class profile_row : INotifyPropertyChanged
+{
+    public profile_row(string name, bool is_in_cycle, string tooltip)
+    {
+        this.name = name;
+        _is_in_cycle = is_in_cycle;
+        _can_toggle = true;
+        this.tooltip = tooltip;
+    }
+
+    public string name { get; }
+    public string tooltip { get; }
+
+    private bool _is_in_cycle;
+    public bool is_in_cycle
+    {
+        get => _is_in_cycle;
+        set
+        {
+            if (_is_in_cycle == value)
+            {
+                return;
+            }
+            _is_in_cycle = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(is_in_cycle)));
+        }
+    }
+
+    private bool _can_toggle;
+    public bool can_toggle
+    {
+        get => _can_toggle;
+        set
+        {
+            if (_can_toggle == value)
+            {
+                return;
+            }
+            _can_toggle = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(can_toggle)));
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
 }
