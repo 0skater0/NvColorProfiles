@@ -405,8 +405,12 @@ public partial class nv_app : Application
 
     private void rebuild_menu()
     {
-        var menu = tray.Menu!;
-        menu.Items.Clear();
+        // Build a fresh NativeMenu and assign it, instead of mutating tray.Menu.Items.
+        // Windows Shell caches the tray context menu's native handle across an Items.Clear() +
+        // Add() cycle, so removed profiles (e.g. after Delete + autosave-on-close) kept
+        // appearing in the tray menu until the app was restarted. Reassigning the menu forces
+        // a full rebuild of the native handle.
+        var menu = new NativeMenu();
 
         if (!host.nvapi_available)
         {
@@ -464,6 +468,8 @@ public partial class nv_app : Application
         var exit_item = new NativeMenuItem(i18n.t("tray.exit"));
         exit_item.Click += (_, _) => desktop?.Shutdown();
         menu.Items.Add(exit_item);
+
+        tray.Menu = menu;
     }
 
     private void open_release_page()
