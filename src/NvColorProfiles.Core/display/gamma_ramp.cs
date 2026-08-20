@@ -48,8 +48,11 @@ public sealed class gamma_ramp
 
     /// <summary>
     /// Builds a 3072-entry float ramp (R,G,B interleaved) in the shape
-    /// <c>NvAPI_DISP_SetTargetGammaCorrection</c> expects, using NVCP's exact curve (nvBrightness §6).
-    /// UI values map linearly to driver units (b/c 0..200, gamma 40..280; 100 = neutral).
+    /// <c>NvAPI_DISP_SetTargetGammaCorrection</c> expects, using NVCP's native curve
+    /// (reverse-engineered from nvxdapix.dll DesktopColorSettings::SetGammaRampEx by
+    /// pbatard/nvBrightness, see src/nvDisplay.cpp CalculateGamma).
+    /// UI [0,1] with 0.5 = neutral maps to native driver units brightness/contrast 80..120
+    /// (100 = neutral), gamma 40..280 (100 = neutral).
     /// </summary>
     public static float[] to_nvapi_ramp(double brightness, double contrast, double gamma)
     {
@@ -71,8 +74,8 @@ public sealed class gamma_ramp
                 nameof(buffer));
         }
 
-        var brightness_raw = Math.Clamp(brightness, 0, 1) * 200;
-        var contrast_raw = Math.Clamp(contrast, 0, 1) * 200;
+        var brightness_raw = 80 + Math.Clamp(brightness, 0, 1) * 40;
+        var contrast_raw = 80 + Math.Clamp(contrast, 0, 1) * 40;
         var gamma_raw = Math.Clamp(gamma, 0.4, 2.8) * 100;
 
         var contrast_norm = (contrast_raw - 100) / 100.0;

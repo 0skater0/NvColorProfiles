@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/).
 
+## 1.2.1 — 2026-08-20
+
+### Fixed
+
+- **Brightness and contrast now match the NVIDIA Control Panel for the same slider position.** Since 1.2.0 the app internally stretched UI slider values five times too far when writing to the NVAPI display pipeline LUT. Above the neutral 50 % mark this crushed shadows and blew highlights well before users would call the slider extreme, and did not match what NVCP renders for the same value. UI values are now mapped into NVCP's native 80–120 driver range as the underlying ramp math expects. Default-profile output is unchanged, so existing profiles keep working; profiles you tuned in 1.2.0 to compensate for the harder curve will now look milder and can be moved closer to the values you would use in NVCP itself. (#4, #5)
+
 ## 1.2.0 — 2026-08-18
 
 ### Added
