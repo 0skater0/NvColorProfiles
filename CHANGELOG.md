@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/).
 
+## 1.2.2 — 2026-08-20
+
+### Fixed
+
+- **Deleted profiles no longer keep appearing in the tray menu.** Windows Shell caches the tray context menu's native handle, so mutating the item list (clear + refill) did not reliably update what you see when you right-click the tray icon. Rename and add worked because the item count stayed the same or grew, but delete left the removed profile visible until the app was restarted. The tray menu is now rebuilt as a fresh menu on every refresh, so add, rename and delete all take effect immediately.
+
 ## 1.2.1 — 2026-08-20
 
 ### Fixed
