@@ -264,20 +264,25 @@ public partial class nv_app : Application
         rebuild_menu();
     }
 
-    // re-evaluates the active context periodically so a time-schedule boundary takes effect even
-    // when the foreground window hasn't changed
+    // Periodic safety net for auto mode. Two jobs:
+    //   1) A time-schedule boundary takes effect without the foreground window changing.
+    //   2) If EVENT_SYSTEM_FOREGROUND didn't fire on the last transition (alt-enter into exclusive
+    //      fullscreen, some launcher handoffs, splash-to-main-window swaps) the cached
+    //      last_process/last_title are stale. Re-read the current foreground here so the auto
+    //      switch catches up without the user having to alt-tab or hit the Windows key.
     private void ensure_schedule_timer()
     {
         if (schedule_timer is not null)
         {
             return;
         }
-        schedule_timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(30) };
+        schedule_timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
         schedule_timer.Tick += (_, _) =>
         {
             if (is_auto)
             {
-                on_foreground(last_process, last_title);
+                var (process, title) = win_foreground.current();
+                on_foreground(process, title);
             }
         };
     }

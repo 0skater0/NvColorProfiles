@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows [Semantic Versioning](https://semver.org/).
 
+## 1.2.3 — 2026-08-27
+
+### Fixed
+
+- **Auto mode now catches up within seconds when Windows doesn't announce a foreground change.** In some transitions (alt-enter into exclusive fullscreen, certain launcher handoffs, splash-to-main-window swaps) Windows does not fire the foreground event the auto-mode watcher listens on. The safety-net timer used to reuse the last cached process, so auto mode stayed stuck on the old profile until the user pressed alt-tab or the Windows key. The timer now reads the current foreground fresh on every tick and runs every 5 seconds instead of every 30, so a missed event is corrected in at most a few seconds without any user action. (#6)
+
 ## 1.2.2 — 2026-08-20
 
 ### Fixed
